@@ -1,13 +1,28 @@
 # 🎬 Producer Cue
 
 > **Autonomous AI Design & Development Engine (Model Context Protocol Server)**  
-> Developed by **Project Cues, Inc.** ([projectcues.com](https://projectcues.com))
+> Developed by **Project Cues, Inc.** ([projectcues.com](https://projectcues.com))  
+> 🌐 **Live MCP Endpoint**: [https://mcp.producercue.com](https://mcp.producercue.com)
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Node](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Protocol_Compliant-purple.svg)](https://modelcontextprotocol.io/)
 
 **Producer Cue** is an enterprise-grade AI design and development engine exposed as a **Model Context Protocol (MCP)** server. It allows AI coding assistants (Cursor, Claude Desktop, Antigravity, ChatGPT) to design, synthesize, heal, and export production-ready, accessible web applications and design systems in real time with **zero build overhead**.
+
+---
+
+## 🌐 Cloud Endpoints (`https://mcp.producercue.com`)
+
+Producer Cue is deployed live with high-availability edge routing:
+
+* **Interactive Web Dashboard**: `https://mcp.producercue.com/`
+* **MCP Server-Sent Events (SSE)**: `https://mcp.producercue.com/sse`
+* **MCP SSE Message Receiver**: `https://mcp.producercue.com/messages`
+* **Streamable HTTP Endpoint**: `https://mcp.producercue.com/mcp`
+* **Direct JSON-RPC Endpoint**: `https://mcp.producercue.com/rpc`
+* **Health Check**: `https://mcp.producercue.com/health`
+* **Tool Schemas (REST)**: `https://mcp.producercue.com/tools`
 
 ---
 
@@ -24,32 +39,39 @@
 
 ## 🛠️ MCP Installation & Setup
 
-### 1. Cursor IDE
-Open **Cursor Settings** $\rightarrow$ **Features** $\rightarrow$ **MCP Servers** $\rightarrow$ **Add New MCP Server**:
-* **Name**: `producer-cue`
-* **Type**: `command`
-* **Command**: `node /path/to/producer-cue/bin/producer-cue.js`  
-  *(or `npx @projectcues/producer-cue`)*
-
-### 2. Claude Desktop
+### 1. Cloud MCP (SSE) — Claude Desktop
 Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "producer-cue": {
-      "command": "node",
-      "args": ["/absolute/path/to/producer-cue/bin/producer-cue.js"]
+      "url": "https://mcp.producercue.com/sse"
     }
   }
 }
 ```
 
-### 3. Antigravity / Custom Agent Runner
-Add to your agent configuration:
+### 2. Cloud MCP (SSE) — Cursor IDE
+Open **Cursor Settings** → **Features** → **MCP Servers** → **Add New MCP Server**:
+* **Name**: `producer-cue`
+* **Type**: `sse`
+* **URL**: `https://mcp.producercue.com/sse`
+
+### 3. Local CLI / Stdio
+Run locally without cloud connectivity:
+```bash
+npx @projectcues/producer-cue
+```
+
+Or configure locally in Claude Desktop:
 ```json
 {
-  "command": "node",
-  "args": ["/Users/lordalmighty/Downloads/producer-cue/bin/producer-cue.js"]
+  "mcpServers": {
+    "producer-cue": {
+      "command": "npx",
+      "args": ["-y", "@projectcues/producer-cue"]
+    }
+  }
 }
 ```
 
@@ -70,7 +92,7 @@ Add to your agent configuration:
 ---
 
 ## 🧪 Testing the Server
-Run the built-in automated test suite:
+Run the automated test suite covering both stdio and HTTP/SSE transports:
 ```bash
 node --test test/mcp.test.js
 ```

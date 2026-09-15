@@ -3,6 +3,8 @@
  * Built by Project Cues, Inc. (https://projectcues.com)
  */
 
+import { startHttpServer } from './server.js'
+
 export * from './dsl/compactTypes.js'
 export * from './dsl/compiler.js'
 export * from './exporters/index.js'
@@ -18,3 +20,19 @@ export * from './primitives/index.js'
 export * from './tokens/colorUtils.js'
 export * from './tokens/tokenEngine.js'
 export * from './vision/visionPipeline.js'
+export * from './server.js'
+
+// Auto-boot HTTP server in hosted / server environments (Hostinger, Cloud, Docker)
+const isDirectEntry =
+  process.argv[1] &&
+  (process.argv[1].endsWith('src/index.js') ||
+    process.argv[1].endsWith('src/server.js'))
+const isHostedServer = Boolean(
+  process.env.PORT ||
+    process.env.TRANSPORT === 'http' ||
+    process.env.TRANSPORT === 'sse'
+)
+
+if (isDirectEntry || isHostedServer) {
+  startHttpServer()
+}

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import test from 'node:test'
 import path from 'node:path'
+import http from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { createHttpServer } from '../src/server.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const binPath = path.resolve(__dirname, '../bin/producer-cue.js')
@@ -121,4 +123,148 @@ test('Producer Cue: End-to-End MCP Stdio Protocol', async () => {
   assert.ok(exportData.code.includes('export const HeroButton'))
 
   child.kill()
+})
+
+test('Producer Cue: End-to-End Cloud HTTP & SSE Transport', async () => {
+  const server = createHttpServer()
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const port = server.address().port
+
+  function makeRequest(pathname, method = 'GET', body = null, headers = {}) {
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port,
+          path: pathname,
+          method,
+          headers: {
+            ...headers,
+            ...(body ? { 'Content-Type': 'application/json' } : {}),
+          },
+        },
+        (res) => {
+          let data = ''
+          res.on('data', (c) => (data += c))
+          res.on('end', () => {
+            resolve({
+              statusCode: res.statusCode,
+              headers: res.headers,
+              body: data,
+            })
+          })
+        }
+      )
+      req.on('error', reject)
+      if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body))
+      req.end()
+    })
+  }
+
+  // 1. Health check: GET /health
+  const health = await makeRequest('/health')
+  assert.equal(health.statusCode, 200)
+  const healthJson = JSON.parse(health.body)
+  assert.equal(healthJson.status, 'ok')
+  assert.equal(healthJson.server, 'producer-cue')
+  assert.equal(healthJson.tools, 7)
+
+  // 2. Tools list: GET /tools
+  const tools = await makeRequest('/tools')
+  assert.equal(tools.statusCode, 200)
+  const toolsJson = JSON.parse(tools.body)
+  assert.equal(toolsJson.total_tools, 7)
+  assert.ok(toolsJson.tools.find((t) => t.name === 'producer_generate_theme'))
+
+  // 3. Web Dashboard: GET /
+  const dashboard = await makeRequest('/')
+  assert.equal(dashboard.statusCode, 200)
+  assert.ok(dashboard.body.includes('Producer Cue'))
+  assert.ok(dashboard.body.includes('Project Cues, Inc.'))
+
+  // 4. Direct JSON-RPC: POST /rpc
+  const rpcRes = await makeRequest('/rpc', 'POST', {
+    jsonrpc: '2.0',
+    id: 10,
+    method: 'tools/call',
+    params: {
+      name: 'producer_get_primitive',
+      arguments: { type: 'toast' },
+    },
+  })
+  assert.equal(rpcRes.statusCode, 200)
+  const rpcJson = JSON.parse(rpcRes.body)
+  assert.equal(rpcJson.id, 10)
+  const toastData = JSON.parse(rpcJson.result.content[0].text)
+  assert.equal(toastData.name, 'Toast')
+
+  // 5. Streamable HTTP: POST /mcp
+  const mcpRes = await makeRequest('/mcp', 'POST', {
+    jsonrpc: '2.0',
+    id: 11,
+    method: 'tools/list',
+    params: {},
+  })
+  assert.equal(mcpRes.statusCode, 200)
+  const mcpJson = JSON.parse(mcpRes.body)
+  assert.equal(mcpJson.id, 11)
+  assert.equal(mcpJson.result.tools.length, 7)
+
+  // 6. SSE Transport: GET /sse & POST /messages
+  const sseSession = await new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path: '/sse',
+        method: 'GET',
+      },
+      (res) => {
+        let buffer = ''
+        res.on('data', (chunk) => {
+          buffer += chunk.toString()
+          if (buffer.includes('event: endpoint')) {
+            const match = buffer.match(/data: \/messages\?sessionId=([a-f0-9-]+)/)
+            if (match) {
+              resolve({
+                sessionId: match[1],
+                res,
+                req,
+                getBuffer: () => buffer,
+              })
+            }
+          }
+        })
+      }
+    )
+    req.on('error', reject)
+    req.end()
+  })
+
+  assert.ok(sseSession.sessionId)
+
+  // Send message via POST /messages
+  const msgRes = await makeRequest(
+    `/messages?sessionId=${sseSession.sessionId}`,
+    'POST',
+    {
+      jsonrpc: '2.0',
+      id: 99,
+      method: 'tools/call',
+      params: {
+        name: 'producer_get_primitive',
+        arguments: { type: 'combobox' },
+      },
+    }
+  )
+  assert.equal(msgRes.statusCode, 202)
+
+  // Verify message arrived over SSE
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  const sseOutput = sseSession.getBuffer()
+  assert.ok(sseOutput.includes('"id":99'))
+  assert.ok(sseOutput.includes('Combobox'))
+
+  sseSession.req.destroy()
+  await new Promise((resolve) => server.close(resolve))
 })

@@ -180,6 +180,103 @@ export function handleMcpToolCall(name, args) {
   }
 }
 
+export async function executeRpc(request) {
+  if (!request || typeof request !== 'object') {
+    return {
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32700, message: 'Parse error: invalid JSON-RPC request' },
+    }
+  }
+
+  const { id, method, params } = request
+
+  // Handle notifications (no response required)
+  if (method === 'notifications/initialized' || method === 'initialized') {
+    return null
+  }
+
+  try {
+    if (method === 'initialize') {
+      return {
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities: {
+            tools: {
+              listChanged: false,
+            },
+          },
+          serverInfo: {
+            name: 'producer-cue',
+            version: '1.0.0',
+          },
+        },
+      }
+    }
+
+    if (method === 'ping') {
+      return {
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {},
+      }
+    }
+
+    if (method === 'tools/list') {
+      return {
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          tools: MCP_TOOLS,
+        },
+      }
+    }
+
+    if (method === 'tools/call') {
+      const toolName = params?.name
+      const toolArgs = params?.arguments || {}
+      const result = await handleMcpToolCall(toolName, toolArgs)
+
+      return {
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        },
+      }
+    }
+
+    if (id !== undefined) {
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32601,
+          message: `Method not found: ${method}`,
+        },
+      }
+    }
+
+    return null
+  } catch (err) {
+    return {
+      jsonrpc: '2.0',
+      id: id ?? null,
+      error: {
+        code: -32603,
+        message: `Internal error: ${err.message}`,
+      },
+    }
+  }
+}
+
 export function startMcpServer() {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -187,70 +284,18 @@ export function startMcpServer() {
     terminal: false,
   })
 
-  rl.on('line', (line) => {
+  rl.on('line', async (line) => {
     if (!line.trim()) return
 
     try {
       const request = JSON.parse(line)
-      const { id, method, params } = request
-
-      if (method === 'initialize') {
-        const response = {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: { tools: {} },
-            serverInfo: {
-              name: 'producer-cue',
-              version: '1.0.0',
-            },
-          },
-        }
+      const response = await executeRpc(request)
+      if (response !== null) {
         process.stdout.write(`${JSON.stringify(response)}\n`)
-        return
-      }
-
-      if (method === 'tools/list') {
-        const response = {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            tools: MCP_TOOLS,
-          },
-        }
-        process.stdout.write(`${JSON.stringify(response)}\n`)
-        return
-      }
-
-      if (method === 'tools/call') {
-        const toolName = params.name
-        const toolArgs = params.arguments || {}
-        const result = handleMcpToolCall(toolName, toolArgs)
-
-        const response = {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          },
-        }
-        process.stdout.write(`${JSON.stringify(response)}\n`)
-        return
-      }
-
-      if (id !== undefined) {
-        process.stdout.write(
-          `${JSON.stringify({ jsonrpc: '2.0', id, result: {} })}\n`,
-        )
       }
     } catch (err) {
       process.stderr.write(`Producer Cue MCP Server Error: ${err.message}\n`)
     }
   })
 }
+
