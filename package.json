@@ -1,0 +1,41 @@
+{
+  "name": "@projectcues/producer-cue",
+  "version": "1.0.0",
+  "description": "Producer Cue: Autonomous AI Design & Development Engine MCP Server by Project Cues, Inc.",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "producer-cue": "./bin/producer-cue.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/producer-cue.js",
+    "test": "node --test test/mcp.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "design-system",
+    "ai-ui",
+    "ai-developer",
+    "nordcraft",
+    "projectcues",
+    "lovable",
+    "bolt",
+    "v0"
+  ],
+  "author": "Project Cues, Inc. (https://projectcues.com)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/projectcues/producer-cue.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
