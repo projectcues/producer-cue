@@ -17,6 +17,12 @@
     "start": "node bin/producer-cue.js",
     "test": "node --test test/mcp.test.js"
   },
+  "dependencies": {
+    "@nordcraft/core": "file:../Nordcraft/packages/core",
+    "@nordcraft/lib": "file:../Nordcraft/packages/lib",
+    "@nordcraft/runtime": "file:../Nordcraft/packages/runtime",
+    "@nordcraft/ssr": "file:../Nordcraft/packages/ssr"
+  },
   "keywords": [
     "mcp",
     "model-context-protocol",
