@@ -1,5 +1,5 @@
-import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent';
-import { mapObject } from '@nordcraft/core/dist/utils/collections';
+import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent.js';
+import { mapObject } from '@nordcraft/core/dist/utils/collections.js';
 import { isDefined } from '@nordcraft/core/src/utils/util';
 const compareApiDependencies = (a, b) => {
     if (!isDefined(a)) {

@@ -1,4 +1,4 @@
-import { STRING_TEMPLATE } from '@nordcraft/core/dist/api/template';
+import { STRING_TEMPLATE } from '@nordcraft/core/dist/api/template.js';
 /**
  * Nordcraft uses a custom string template to replace HttpOnly cookies server-side.
  * Learn more about cookies here https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies

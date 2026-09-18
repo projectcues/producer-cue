@@ -1,17 +1,17 @@
-import { isLegacyApi } from '@nordcraft/core/dist/api/api';
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
+import { isLegacyApi } from '@nordcraft/core/dist/api/api.js';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
 import { createStylesheet } from '@nordcraft/core/dist/styling/style.css';
-import { theme as defaultTheme, THEME_DATA_ATTRIBUTE, } from '@nordcraft/core/dist/styling/theme.const';
-import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
-import { isContextApiV2 } from '../api/apiUtils';
-import { createLegacyAPI } from '../api/createAPI';
-import { createAPI } from '../api/createAPIv2';
-import { sortApis } from '../api/sortApis';
-import { renderComponent } from '../components/renderComponent';
-import { isContextProvider } from '../context/isContextProvider';
-import { signal } from '../signal/signal';
-import { getThemeSignal } from '../utils/getThemeSignal';
+import { theme as defaultTheme, THEME_DATA_ATTRIBUTE, } from '@nordcraft/core/dist/styling/theme.const.js';
+import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
+import { isContextApiV2 } from '../api/apiUtils.js';
+import { createLegacyAPI } from '../api/createAPI.js';
+import { createAPI } from '../api/createAPIv2.js';
+import { sortApis } from '../api/sortApis.js';
+import { renderComponent } from '../components/renderComponent.js';
+import { isContextProvider } from '../context/isContextProvider.js';
+import { signal } from '../signal/signal.js';
+import { getThemeSignal } from '../utils/getThemeSignal.js';
 /**
  * Base class for all toddle components
  */

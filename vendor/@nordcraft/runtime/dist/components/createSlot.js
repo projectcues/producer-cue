@@ -1,4 +1,4 @@
-import { createNode } from './createNode';
+import { createNode } from './createNode.js';
 export function createSlot({ path, node, dataSignal, ctx, parentElement, instance, namespace, slotRepeatIndex, }) {
     const slotName = node.name ?? 'default';
     let children = [];

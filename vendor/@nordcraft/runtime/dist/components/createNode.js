@@ -1,12 +1,12 @@
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { toBoolean } from '@nordcraft/core/dist/utils/util';
-import { signal } from '../signal/signal';
-import { getComponent } from '../utils/getComponent';
-import { ensureEfficientOrdering, getNextSiblingElement } from '../utils/nodes';
-import { createComponent } from './createComponent';
-import { createElement } from './createElement';
-import { createSlot } from './createSlot';
-import { createText } from './createText';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { toBoolean } from '@nordcraft/core/dist/utils/util.js';
+import { signal } from '../signal/signal.js';
+import { getComponent } from '../utils/getComponent.js';
+import { ensureEfficientOrdering, getNextSiblingElement } from '../utils/nodes.js';
+import { createComponent } from './createComponent.js';
+import { createElement } from './createElement.js';
+import { createSlot } from './createSlot.js';
+import { createText } from './createText.js';
 export function createNode({ id, dataSignal, path, ctx, namespace, parentElement, instance, slotRepeatIndex, }) {
     const node = ctx.component.nodes?.[id];
     if (!node) {

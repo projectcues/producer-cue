@@ -1,7 +1,7 @@
-import { applyFormula, } from '@nordcraft/core/dist/formula/formula';
-import { THEME_COOKIE_NAME } from '@nordcraft/core/dist/styling/theme.const';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
-import { signal } from '../signal/signal';
+import { applyFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import { THEME_COOKIE_NAME } from '@nordcraft/core/dist/styling/theme.const.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
+import { signal } from '../signal/signal.js';
 export const getThemeSignal = (component, dataSignal, env) => {
     const theme = component.route?.info?.theme;
     const themeFormula = theme?.formula;

@@ -1,5 +1,5 @@
-import { CUSTOM_PROPERTIES_STYLESHEET_ID } from '@nordcraft/core/dist/styling/theme.const';
-import { CustomPropertyStyleSheet } from '../styles/CustomPropertyStyleSheet';
+import { CUSTOM_PROPERTIES_STYLESHEET_ID } from '@nordcraft/core/dist/styling/theme.const.js';
+import { CustomPropertyStyleSheet } from '../styles/CustomPropertyStyleSheet.js';
 export const customPropertiesStylesheets = new WeakMap();
 export function subscribeCustomProperty({ selector, customPropertyName, signal, variant, root, }) {
     let stylesheet = customPropertiesStylesheets.get(root);

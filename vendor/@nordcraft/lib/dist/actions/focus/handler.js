@@ -1,4 +1,4 @@
-import { toBoolean } from '@nordcraft/core/dist/utils/util';
+import { toBoolean } from '@nordcraft/core/dist/utils/util.js';
 const handler = ([elem, preventScroll]) => {
     if (elem instanceof HTMLElement) {
         elem.focus({

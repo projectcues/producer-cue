@@ -1,5 +1,5 @@
-import { isDefined } from '../utils/util';
-import { isFormula, isToddleFormula } from './formula';
+import { isDefined } from '../utils/util.js';
+import { isFormula, isToddleFormula } from './formula.js';
 export const valueFormula = (value) => ({
     type: 'value',
     value,

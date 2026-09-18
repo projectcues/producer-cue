@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { EventModelSchema } from './event-schema';
-import { FormulaSchema } from './formula-schema';
-import { MetadataSchema } from './zod-schemas';
+import { EventModelSchema } from './event-schema.js';
+import { FormulaSchema } from './formula-schema.js';
+import { MetadataSchema } from './zod-schemas.js';
 // API Models
 const ApiMethodSchema = z
     .enum(['GET', 'POST', 'DELETE', 'PUT', 'PATCH', 'HEAD', 'OPTIONS'])

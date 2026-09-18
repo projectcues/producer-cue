@@ -1,6 +1,6 @@
-import { measure } from '../utils/measure';
-import { isDefined } from '../utils/util';
-import { applyFormula, isToddleFormula, } from './formula';
+import { measure } from '../utils/measure.js';
+import { isDefined } from '../utils/util.js';
+import { applyFormula, isToddleFormula, } from './formula.js';
 export const applyFunctionFormula = (formula, ctx) => {
     const stopMeasure = measure(`Formula: ${formula.name}`, {
         formula,

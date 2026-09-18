@@ -1,6 +1,6 @@
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 export function subscribeToContext(componentDataSignal, component, ctx) {
     Object.entries(component.contexts ?? {}).forEach(([providerName, context]) => {
         const provider = ctx.providers[[ctx.package, providerName].filter(isDefined).join('/')];

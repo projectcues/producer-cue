@@ -1,6 +1,6 @@
-import { createApiRequest, HttpMethodsWithAllowedBody, } from '@nordcraft/core/dist/api/api';
-import { ApiMethod } from '@nordcraft/core/dist/api/apiTypes';
-import { PROXY_URL_HEADER } from '@nordcraft/core/dist/utils/url';
+import { createApiRequest, HttpMethodsWithAllowedBody, } from '@nordcraft/core/dist/api/api.js';
+import { ApiMethod } from '@nordcraft/core/dist/api/apiTypes.js';
+import { PROXY_URL_HEADER } from '@nordcraft/core/dist/utils/url.js';
 const INTROSPECTION_QUERY = `\
 query IntrospectionQuery {
   __schema {

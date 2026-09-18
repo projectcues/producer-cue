@@ -1,5 +1,5 @@
-import { stripNodeIdRepeatIndices } from '../../utils/nodes';
-import { postMessageToEditor } from '../postMessageToEditor';
+import { stripNodeIdRepeatIndices } from '../../utils/nodes.js';
+import { postMessageToEditor } from '../postMessageToEditor.js';
 export const handleTextNodeSelection = (node, options = {
     onInput: () => { },
 }) => {

@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 import { parse } from 'cookie';
 export const getRequestCookies = (req) => Object.fromEntries(Object.entries(parse(req.headers.get('cookie') ?? '')).filter(
 // Ensure that both key and value are defined

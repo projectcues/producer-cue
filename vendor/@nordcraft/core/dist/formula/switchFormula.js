@@ -1,5 +1,5 @@
-import { toBoolean } from '../utils/util';
-import { applyFormula, } from './formula';
+import { toBoolean } from '../utils/util.js';
+import { applyFormula, } from './formula.js';
 export const applySwitchFormula = (formula, ctx) => {
     // Evaluates cases until one matches
     for (let i = 0; i < (formula.cases ?? []).length; i++) {

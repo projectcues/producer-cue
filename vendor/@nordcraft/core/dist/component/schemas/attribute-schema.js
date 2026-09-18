@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MetadataSchema, SCHEMA_DESCRIPTIONS } from './zod-schemas';
+import { MetadataSchema, SCHEMA_DESCRIPTIONS } from './zod-schemas.js';
 export const ComponentAttributeSchema = z
     .object({
     '@nordcraft/metadata': MetadataSchema.nullish().describe(SCHEMA_DESCRIPTIONS.metadata('component attribute')),

@@ -1,4 +1,4 @@
-import { applyFormula, isFormula, } from '@nordcraft/core/dist/formula/formula';
+import { applyFormula, isFormula, } from '@nordcraft/core/dist/formula/formula.js';
 export const evaluateResponseHeaders = ({ formulaContext, responseHeaders, }) => {
     if (!responseHeaders) {
         return {};

@@ -1,4 +1,4 @@
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
 /**
  * Create a text node
  *

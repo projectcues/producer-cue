@@ -1,7 +1,7 @@
-import * as libActions from '@nordcraft/std-lib/dist/actions';
-import * as libFormulas from '@nordcraft/std-lib/dist/formulas';
+import * as libActions from '@nordcraft/std-lib/dist/actions.js';
+import * as libFormulas from '@nordcraft/std-lib/dist/formulas.js';
 import fastDeepEqual from 'fast-deep-equal';
-import { defineComponents } from './custom-element/defineComponents';
+import { defineComponents } from './custom-element/defineComponents.js';
 const loadCorePlugins = (toddle = window.toddle) => {
     toddle.isEqual = fastDeepEqual;
     // load default formulas and actions

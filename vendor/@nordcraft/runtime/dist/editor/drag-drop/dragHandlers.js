@@ -1,8 +1,8 @@
-import { getDOMNodeFromNodeId } from '../../editor-preview.main';
-import { rectHasPoint } from '../../utils/rectHasPoint';
-import { dragInsertEnded, dragInsertMove, dragInsertStarted } from '../helpers';
-import { postMessageToEditor } from '../postMessageToEditor';
-import { dragReorder } from './dragReorder';
+import { getDOMNodeFromNodeId } from '../../editor-preview.main.js';
+import { rectHasPoint } from '../../utils/rectHasPoint.js';
+import { dragInsertEnded, dragInsertMove, dragInsertStarted } from '../helpers.js';
+import { postMessageToEditor } from '../postMessageToEditor.js';
+import { dragReorder } from './dragReorder.js';
 export const handleDragStarted = (messageData, selectedNodeId, altKey) => {
     const draggedElement = getDOMNodeFromNodeId(selectedNodeId);
     if (!draggedElement?.parentElement) {

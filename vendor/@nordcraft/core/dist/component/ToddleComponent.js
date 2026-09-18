@@ -1,11 +1,11 @@
-import { isLegacyApi } from '../api/api';
-import { LegacyToddleApi } from '../api/LegacyToddleApi';
-import { ToddleApiV2 } from '../api/ToddleApiV2';
-import { isFormula } from '../formula/formula';
-import { getFormulasInAction, getFormulasInFormula, } from '../formula/formulaUtils';
-import { isDefined } from '../utils/util';
-import { getActionsInAction } from './actionUtils';
-import { isPageComponent } from './isPageComponent';
+import { isLegacyApi } from '../api/api.js';
+import { LegacyToddleApi } from '../api/LegacyToddleApi.js';
+import { ToddleApiV2 } from '../api/ToddleApiV2.js';
+import { isFormula } from '../formula/formula.js';
+import { getFormulasInAction, getFormulasInFormula, } from '../formula/formulaUtils.js';
+import { isDefined } from '../utils/util.js';
+import { getActionsInAction } from './actionUtils.js';
+import { isPageComponent } from './isPageComponent.js';
 export class ToddleComponent {
     component;
     globalFormulas;

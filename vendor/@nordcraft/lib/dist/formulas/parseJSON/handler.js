@@ -1,4 +1,4 @@
-import { parseJSONWithDate } from '@nordcraft/core/dist/utils/json';
+import { parseJSONWithDate } from '@nordcraft/core/dist/utils/json.js';
 const handler = ([data, parseDate]) => {
     if (typeof data !== 'string') {
         return null;

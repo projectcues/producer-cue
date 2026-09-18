@@ -1,4 +1,4 @@
-import { getFormulasInFormula } from './formulaUtils';
+import { getFormulasInFormula } from './formulaUtils.js';
 export class ToddleFormula {
     formula;
     globalFormulas;

@@ -1,4 +1,4 @@
-import { handleTextNodeSelection } from './selection';
+import { handleTextNodeSelection } from './selection.js';
 const DOUBLE_CLICK_TIME_MAX = 500;
 const DOUBLE_CLICK_DISTANCE_MAX = 2;
 /**

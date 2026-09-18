@@ -1,16 +1,16 @@
-import { HeadTagTypes } from '@nordcraft/core/dist/component/component.types';
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { CUSTOM_PROPERTIES_STYLESHEET_ID } from '@nordcraft/core/dist/styling/theme.const';
-import { easySort } from '@nordcraft/core/dist/utils/collections';
-import { VOID_HTML_ELEMENTS } from '@nordcraft/core/dist/utils/html';
-import { validateUrl } from '@nordcraft/core/dist/utils/url';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
-import { escapeAttrValue } from '../rendering/attributes';
-import { isCloudflareImagePath } from '../utils/media';
-import { nanoid } from '../utils/nanoid';
-import { getFontCssUrl } from './fonts';
-import { getCharset } from './html';
-import { defaultSpeculationRules } from './speculation';
+import { HeadTagTypes } from '@nordcraft/core/dist/component/component.types.js';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { CUSTOM_PROPERTIES_STYLESHEET_ID } from '@nordcraft/core/dist/styling/theme.const.js';
+import { easySort } from '@nordcraft/core/dist/utils/collections.js';
+import { VOID_HTML_ELEMENTS } from '@nordcraft/core/dist/utils/html.js';
+import { validateUrl } from '@nordcraft/core/dist/utils/url.js';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
+import { escapeAttrValue } from '../rendering/attributes.js';
+import { isCloudflareImagePath } from '../utils/media.js';
+import { nanoid } from '../utils/nanoid.js';
+import { getFontCssUrl } from './fonts.js';
+import { getCharset } from './html.js';
+import { defaultSpeculationRules } from './speculation.js';
 /**
  * Returns all head items for a given page
  */

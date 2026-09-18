@@ -1,4 +1,4 @@
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
 /**
  * Some attributes need special handling.
  */

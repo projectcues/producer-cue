@@ -1,7 +1,7 @@
-import { isLegacyApi } from '@nordcraft/core/dist/api/api';
-import { isFormula, } from '@nordcraft/core/dist/formula/formula';
-import { filterObject, mapObject, omitKeys, } from '@nordcraft/core/dist/utils/collections';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isLegacyApi } from '@nordcraft/core/dist/api/api.js';
+import { isFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import { filterObject, mapObject, omitKeys, } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 export const removeTestData = (component) => removeOptionalPropertiesIfEmpty({
     ...component,
     attributes: mapObject(filterObject(component.attributes ?? {}, ([_, value]) => isDefined(value)), ([key, value]) => [key, omitKeys(value, ['testValue'])]),

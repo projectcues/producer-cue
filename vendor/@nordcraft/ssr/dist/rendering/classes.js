@@ -1,6 +1,6 @@
-import { valueFormula } from '@nordcraft/core/dist/formula/formulaUtils';
-import { getClassName, getStaticStyleAndVariants, } from '@nordcraft/core/dist/styling/className';
-import { mapObject } from '@nordcraft/core/dist/utils/collections';
+import { valueFormula } from '@nordcraft/core/dist/formula/formulaUtils.js';
+import { getClassName, getStaticStyleAndVariants, } from '@nordcraft/core/dist/styling/className.js';
+import { mapObject } from '@nordcraft/core/dist/utils/collections.js';
 /**
  * Function to strip styles and variants from a Component's nodes and convert them to static class names
  *

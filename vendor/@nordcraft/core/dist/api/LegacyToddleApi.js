@@ -1,7 +1,7 @@
-import { isFormula } from '../formula/formula';
-import { getFormulasInAction, getFormulasInFormula, } from '../formula/formulaUtils';
-import { isDefined } from '../utils/util';
-import {} from './apiTypes';
+import { isFormula } from '../formula/formula.js';
+import { getFormulasInAction, getFormulasInFormula, } from '../formula/formulaUtils.js';
+import { isDefined } from '../utils/util.js';
+import {} from './apiTypes.js';
 export class LegacyToddleApi {
     api;
     key;

@@ -1,5 +1,5 @@
-import { appendUnit } from './customProperty';
-import { generateAlphabeticName, hash } from './hash';
+import { appendUnit } from './customProperty.js';
+import { generateAlphabeticName, hash } from './hash.js';
 // Classnames are reused a lot, and JS hashing is expensive, so there is benefit in caching them in a native hashmap.
 const CLASSNAME_LOOKUP = new Map();
 export const getClassName = (object) => {

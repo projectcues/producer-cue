@@ -1,15 +1,15 @@
 import { z } from 'zod';
-import { ActionModelSchema } from './action-schema';
-import { ComponentAPISchema } from './api-schema';
-import { ComponentAttributeSchema } from './attribute-schema';
-import { ComponentContextSchema } from './context-schema';
-import { ComponentEventSchema } from './event-schema';
-import { ComponentFormulaSchema } from './formula-schema';
-import { NodeModelSchema } from './node-schema';
-import { RouteSchema } from './route-schema';
-import { ComponentVariableSchema } from './variable-schema';
-import { ComponentWorkflowSchema } from './workflow-schema';
-import { SCHEMA_DESCRIPTIONS } from './zod-schemas';
+import { ActionModelSchema } from './action-schema.js';
+import { ComponentAPISchema } from './api-schema.js';
+import { ComponentAttributeSchema } from './attribute-schema.js';
+import { ComponentContextSchema } from './context-schema.js';
+import { ComponentEventSchema } from './event-schema.js';
+import { ComponentFormulaSchema } from './formula-schema.js';
+import { NodeModelSchema } from './node-schema.js';
+import { RouteSchema } from './route-schema.js';
+import { ComponentVariableSchema } from './variable-schema.js';
+import { ComponentWorkflowSchema } from './workflow-schema.js';
+import { SCHEMA_DESCRIPTIONS } from './zod-schemas.js';
 const commonComponentSchema = (type) => z
     .object({
     name: z.string().describe(`Name of the ${type}`),

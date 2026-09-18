@@ -1,5 +1,5 @@
-import { toBoolean } from '../utils/util';
-import { applyFormula } from './formula';
+import { toBoolean } from '../utils/util.js';
+import { applyFormula } from './formula.js';
 export const applyOrFormula = (formula, ctx) => {
     for (let i = 0; i < (formula.arguments ?? []).length; i++) {
         const arg = (formula.arguments ?? [])[i];

@@ -1,4 +1,4 @@
-import { getFormulasInFormula } from '@nordcraft/core/dist/formula/formulaUtils';
+import { getFormulasInFormula } from '@nordcraft/core/dist/formula/formulaUtils.js';
 export class ToddleRoute {
     route;
     globalFormulas;

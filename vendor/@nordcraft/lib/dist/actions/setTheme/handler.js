@@ -1,4 +1,4 @@
-import { THEME_COOKIE_NAME } from '@nordcraft/core/dist/styling/theme.const';
+import { THEME_COOKIE_NAME } from '@nordcraft/core/dist/styling/theme.const.js';
 const ONE_YEAR_MS = 1000 * 60 * 60 * 24 * 365;
 const handler = async function ([name], ctx) {
     if (typeof name !== 'string' && name !== null) {

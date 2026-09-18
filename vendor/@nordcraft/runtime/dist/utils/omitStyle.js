@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 export function omitSubnodeStyleForComponent(component) {
     const clone = structuredClone(component);
     Object.entries(clone?.nodes ?? {}).forEach(([nodeId, node]) => {

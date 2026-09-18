@@ -1,4 +1,4 @@
-import { isObject } from '@nordcraft/core/dist/utils/util';
+import { isObject } from '@nordcraft/core/dist/utils/util.js';
 const handler = (items) => {
     if (items.every(Array.isArray)) {
         const result = [];

@@ -1,10 +1,10 @@
-import { applyFormula, } from '@nordcraft/core/dist/formula/formula';
-import { mapObject, omitKeys } from '@nordcraft/core/dist/utils/collections';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
+import { applyFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import { mapObject, omitKeys } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
 import fastDeepEqual from 'fast-deep-equal';
-import { isContextApiV2 } from '../api/apiUtils';
-import { createFormulaContext } from '../utils/createFormulaContext';
-import { getLocationUrl } from '../utils/url';
+import { isContextApiV2 } from '../api/apiUtils.js';
+import { createFormulaContext } from '../utils/createFormulaContext.js';
+import { getLocationUrl } from '../utils/url.js';
 // eslint-disable-next-line max-params
 export function handleAction(action, data, ctx, event, workflowCallback) {
     try {

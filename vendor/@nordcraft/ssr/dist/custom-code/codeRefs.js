@@ -1,9 +1,9 @@
-import { isLegacyPluginAction } from '@nordcraft/core/dist/component/actionUtils';
-import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent';
-import { isToddleFormula, } from '@nordcraft/core/dist/formula/formula';
-import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections';
-import { safeFunctionName } from '@nordcraft/core/dist/utils/handlerUtils';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isLegacyPluginAction } from '@nordcraft/core/dist/component/actionUtils.js';
+import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent.js';
+import { isToddleFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections.js';
+import { safeFunctionName } from '@nordcraft/core/dist/utils/handlerUtils.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 const projectFormulas = (files) => ({
     formulas: files.formulas,
     packages: files.packages,

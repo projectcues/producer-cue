@@ -1,5 +1,5 @@
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { THEME_COOKIE_NAME } from '@nordcraft/core/dist/styling/theme.const';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { THEME_COOKIE_NAME } from '@nordcraft/core/dist/styling/theme.const.js';
 export const getHtmlLanguage = ({ pageInfo, formulaContext, defaultLanguage = 'en', }) => {
     const language = pageInfo?.language
         ? applyFormula(pageInfo.language.formula, formulaContext)

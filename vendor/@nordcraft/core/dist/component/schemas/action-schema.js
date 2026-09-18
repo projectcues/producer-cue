@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FormulaSchema } from './formula-schema';
+import { FormulaSchema } from './formula-schema.js';
 // Action Models
 const VariableActionModelSchema = z
     .object({

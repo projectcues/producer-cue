@@ -1,8 +1,8 @@
-import { getUrl } from '@nordcraft/core/dist/api/api';
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { filterObject } from '@nordcraft/core/dist/utils/collections';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
-import { getParameters } from '../rendering/formulaContext';
+import { getUrl } from '@nordcraft/core/dist/api/api.js';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { filterObject } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
+import { getParameters } from '../rendering/formulaContext.js';
 export const matchPageForUrl = ({ url, pages, }) => matchRoutes({
     url,
     entries: Object.fromEntries(pages.map((p) => [p.name, p])),

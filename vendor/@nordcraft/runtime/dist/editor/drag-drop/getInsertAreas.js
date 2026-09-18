@@ -1,5 +1,5 @@
-import { getDOMNodeFromNodeId } from '../../editor-preview.main';
-import { isVoidElement } from '../helpers';
+import { getDOMNodeFromNodeId } from '../../editor-preview.main.js';
+import { isVoidElement } from '../helpers.js';
 /**
  * Somewhat convoluted function to calculate all possible drop insertion areas, as lines between elements.
  *

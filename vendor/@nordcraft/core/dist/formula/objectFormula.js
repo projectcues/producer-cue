@@ -1,4 +1,4 @@
-import { applyFormula, } from './formula';
+import { applyFormula, } from './formula.js';
 export const applyObjectFormula = (formula, ctx) => {
     return Object.fromEntries(formula.arguments?.map((entry, i) => [
         entry.name,

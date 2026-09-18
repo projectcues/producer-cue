@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 const handler = ([delay], ctx) => {
     // We'll cast delay in case it's passed as a string
     const delayNumber = Number(delay);

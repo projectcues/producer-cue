@@ -1,5 +1,5 @@
-import { CSS_VAR_SCROLL_HEIGHT } from './const';
-import { postMessageToEditor } from './postMessageToEditor';
+import { CSS_VAR_SCROLL_HEIGHT } from './const.js';
+import { postMessageToEditor } from './postMessageToEditor.js';
 let _lastScrollHeight = 0;
 function resizeCanvas({ force, viewport, }) {
     const domNode = document.getElementById('App');

@@ -1,8 +1,8 @@
-import { measure } from '@nordcraft/core/dist/utils/measure';
+import { measure } from '@nordcraft/core/dist/utils/measure.js';
 import fastDeepEqual from 'fast-deep-equal';
-import { handleAction } from '../events/handleAction';
-import { BatchQueue } from '../utils/BatchQueue';
-import { createNode } from './createNode';
+import { handleAction } from '../events/handleAction.js';
+import { BatchQueue } from '../utils/BatchQueue.js';
+import { createNode } from './createNode.js';
 const BATCH_QUEUE = new BatchQueue();
 export function renderComponent({ component, dataSignal, onEvent, isRootComponent, path, children, formulaCache, components, apis, abortSignal, root, providers, package: packageName, stores, parentElement, instance, toddle, namespace, env, jsonPath, reportFormulaEvaluation, }) {
     const stopMeasure = measure(`Render component: ${component.name}`, {

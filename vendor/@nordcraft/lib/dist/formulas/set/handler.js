@@ -1,4 +1,4 @@
-import { isObject } from '@nordcraft/core/dist/utils/util';
+import { isObject } from '@nordcraft/core/dist/utils/util.js';
 const handler = ([collection, key, value], ctx) => {
     if (typeof key !== 'string' &&
         typeof key !== 'number' &&

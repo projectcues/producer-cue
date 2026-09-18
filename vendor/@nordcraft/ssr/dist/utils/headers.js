@@ -1,4 +1,4 @@
-import { PROXY_TEMPLATES_IN_BODY, PROXY_URL_HEADER, } from '@nordcraft/core/dist/utils/url';
+import { PROXY_TEMPLATES_IN_BODY, PROXY_URL_HEADER, } from '@nordcraft/core/dist/utils/url.js';
 /**
  * Omit the `cookie` header from a set of headers.
  * This is useful when proxying requests for routes/proxied API requests

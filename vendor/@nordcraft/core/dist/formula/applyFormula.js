@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-import { measure } from '../utils/measure';
-import { applyFormula, } from './formula';
+import { measure } from '../utils/measure.js';
+import { applyFormula, } from './formula.js';
 export const applyApplyFormula = (formula, ctx) => {
     const componentFormula = ctx.component?.formulas?.[formula.name];
     if (!componentFormula) {

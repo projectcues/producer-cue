@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 export function takeIncludedComponents({ root, projectComponents, packages = {}, includeRoot = true, }) {
     const components = {
         ...projectComponents,

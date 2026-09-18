@@ -1,5 +1,5 @@
-import { filterObject, get, mapObject, } from '@nordcraft/core/dist/utils/collections';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { filterObject, get, mapObject, } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 export function createFormulaCache(component) {
     if (!isDefined(component.formulas)) {
         return {};

@@ -1,6 +1,6 @@
-import { isDefined } from '../utils/util';
-import { renderSyntaxDefinition } from './customProperty';
-import { RESET_STYLES, THEME_DATA_ATTRIBUTE } from './theme.const';
+import { isDefined } from '../utils/util.js';
+import { renderSyntaxDefinition } from './customProperty.js';
+import { RESET_STYLES, THEME_DATA_ATTRIBUTE } from './theme.const.js';
 export const getThemeCss = (themes, options) => {
     const [themesV1, themesV2] = Object.entries(themes).reduce(([legacy, modern], [key, value]) => {
         if ('breakpoints' in value) {

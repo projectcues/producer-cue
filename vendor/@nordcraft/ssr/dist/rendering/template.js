@@ -1,6 +1,6 @@
-import { STRING_TEMPLATE } from '@nordcraft/core/dist/api/template';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
-import { skipCookieHeader, skipHopByHopHeaders, skipNordcraftHeaders, } from '../utils/headers';
+import { STRING_TEMPLATE } from '@nordcraft/core/dist/api/template.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
+import { skipCookieHeader, skipHopByHopHeaders, skipNordcraftHeaders, } from '../utils/headers.js';
 export const applyTemplateValues = (input, cookies) => {
     if (!isDefined(input)) {
         return '';

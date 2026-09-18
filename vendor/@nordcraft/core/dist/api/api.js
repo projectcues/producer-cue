@@ -1,9 +1,9 @@
-import { applyFormula } from '../formula/formula';
-import { omitKeys, sortObjectEntries } from '../utils/collections';
-import { hash } from '../utils/hash';
-import { isDefined, isObject, toBoolean } from '../utils/util';
-import { ApiMethod } from './apiTypes';
-import { isJsonHeader } from './headers';
+import { applyFormula } from '../formula/formula.js';
+import { omitKeys, sortObjectEntries } from '../utils/collections.js';
+import { hash } from '../utils/hash.js';
+import { isDefined, isObject, toBoolean } from '../utils/util.js';
+import { ApiMethod } from './apiTypes.js';
+import { isJsonHeader } from './headers.js';
 export const NON_BODY_RESPONSE_CODES = [101, 204, 205, 304];
 export const isLegacyApi = (api) => !('version' in api);
 export const createApiRequest = ({ api, formulaContext, baseUrl, defaultHeaders, }) => {

@@ -1,8 +1,8 @@
-import { isElementInViewport } from '../../utils/isElementInViewport';
-import { stripNodeIdRepeatIndices } from '../../utils/nodes';
-import { tryStartViewTransition } from '../../utils/tryStartViewTransition';
-import { DRAG_MOVE_CLASSNAME, getBestPermutation } from '../helpers';
-import { setDropHighlight } from './dropHighlight';
+import { isElementInViewport } from '../../utils/isElementInViewport.js';
+import { stripNodeIdRepeatIndices } from '../../utils/nodes.js';
+import { tryStartViewTransition } from '../../utils/tryStartViewTransition.js';
+import { DRAG_MOVE_CLASSNAME, getBestPermutation } from '../helpers.js';
+import { setDropHighlight } from './dropHighlight.js';
 export const DRAG_REORDER_CLASSNAME = '__drag-mode--reorder';
 export async function dragReorder(dragState) {
     if (!dragState || dragState.isTransitioning) {

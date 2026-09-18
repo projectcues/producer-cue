@@ -1,14 +1,14 @@
-import { isDefined } from '../utils/util';
-import { applyAndFormula, applyEvaluateAllAndFormula } from './andFormula';
-import { applyApplyFormula } from './applyFormula';
-import { applyArrayFormula } from './arrayFormula';
-import {} from './formulaTypes';
-import { applyFunctionFormula } from './functionFormula';
-import { applyObjectFormula } from './objectFormula';
-import { applyEvaluateAllOrFormula, applyOrFormula } from './orFormula';
-import { applyPathFormula } from './pathFormula';
-import { applyRecordFormula } from './recordFormula';
-import { applyEvaluateAllSwitchFormula, applySwitchFormula, } from './switchFormula';
+import { isDefined } from '../utils/util.js';
+import { applyAndFormula, applyEvaluateAllAndFormula } from './andFormula.js';
+import { applyApplyFormula } from './applyFormula.js';
+import { applyArrayFormula } from './arrayFormula.js';
+import {} from './formulaTypes.js';
+import { applyFunctionFormula } from './functionFormula.js';
+import { applyObjectFormula } from './objectFormula.js';
+import { applyEvaluateAllOrFormula, applyOrFormula } from './orFormula.js';
+import { applyPathFormula } from './pathFormula.js';
+import { applyRecordFormula } from './recordFormula.js';
+import { applyEvaluateAllSwitchFormula, applySwitchFormula, } from './switchFormula.js';
 // As we are evaluating all branches of "if", "or" & "and" formulas when reportFormulaEvaluation is provided,
 // we need to limit the depth to infinite loops as exit conditions are no longer used in recursive formulas.
 const MAX_REPORT_DEPTH = 64;

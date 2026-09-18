@@ -1,9 +1,9 @@
-import { getActionsInAction } from '../component/actionUtils';
-import {} from '../formula/formula';
-import { getFormulasInAction, getFormulasInFormula, } from '../formula/formulaUtils';
-import { isDefined } from '../utils/util';
-import { HttpMethodsWithAllowedBody } from './api';
-import {} from './apiTypes';
+import { getActionsInAction } from '../component/actionUtils.js';
+import {} from '../formula/formula.js';
+import { getFormulasInAction, getFormulasInFormula, } from '../formula/formulaUtils.js';
+import { isDefined } from '../utils/util.js';
+import { HttpMethodsWithAllowedBody } from './api.js';
+import {} from './apiTypes.js';
 export class ToddleApiV2 {
     api;
     _apiReferences;

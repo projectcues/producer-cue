@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MetadataSchema, SCHEMA_DESCRIPTIONS } from './zod-schemas';
+import { MetadataSchema, SCHEMA_DESCRIPTIONS } from './zod-schemas.js';
 // Value Operation
 const ValueOperationValueSchema = z.union([
     z.string(),

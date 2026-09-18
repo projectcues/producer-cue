@@ -23,16 +23,21 @@ export * from './vision/visionPipeline.js'
 export * from './server.js'
 
 // Auto-boot HTTP server in hosted / server environments (Hostinger, Cloud, Docker)
-const isDirectEntry =
+const isCliStdio =
   process.argv[1] &&
-  (process.argv[1].endsWith('src/index.js') ||
-    process.argv[1].endsWith('src/server.js'))
-const isHostedServer = Boolean(
-  process.env.PORT ||
-    process.env.TRANSPORT === 'http' ||
-    process.env.TRANSPORT === 'sse'
-)
+  process.argv[1].includes('bin/producer-cue') &&
+  !process.argv.includes('--server')
 
-if (isDirectEntry || isHostedServer) {
+const isEntryFile =
+  Boolean(process.env.PORT) ||
+  process.env.TRANSPORT === 'http' ||
+  process.env.TRANSPORT === 'sse' ||
+  process.env.NODE_ENV === 'production' ||
+  (process.argv[1] &&
+    (process.argv[1].endsWith('src/index.js') ||
+      process.argv[1].endsWith('index.js') ||
+      process.argv[1].endsWith('src/server.js')))
+
+if (isEntryFile && !isCliStdio) {
   startHttpServer()
 }

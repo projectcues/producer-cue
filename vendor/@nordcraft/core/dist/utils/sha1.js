@@ -1,4 +1,4 @@
-import { deepSortObject } from './collections';
+import { deepSortObject } from './collections.js';
 export const stableStringify = (obj) => JSON.stringify(deepSortObject(obj));
 export const sha1 = async (data) => {
     const payload = new Uint8Array(stableStringify(data)

@@ -1,4 +1,4 @@
-import { toBoolean } from '@nordcraft/core/dist/utils/util';
+import { toBoolean } from '@nordcraft/core/dist/utils/util.js';
 const handler = (values) => {
     for (const value of values) {
         if (toBoolean(value)) {

@@ -1,9 +1,9 @@
-import { mapHeadersToObject } from '@nordcraft/core/dist/api/headers';
-import { applyFormula, isFormula, } from '@nordcraft/core/dist/formula/formula';
-import { mapObject } from '@nordcraft/core/dist/utils/collections';
-import { parseJSONWithDate } from '@nordcraft/core/dist/utils/json';
-import { handleAction } from '../events/handleAction';
-import { createFormulaContext } from '../utils/createFormulaContext';
+import { mapHeadersToObject } from '@nordcraft/core/dist/api/headers.js';
+import { applyFormula, isFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import { mapObject } from '@nordcraft/core/dist/utils/collections.js';
+import { parseJSONWithDate } from '@nordcraft/core/dist/utils/json.js';
+import { handleAction } from '../events/handleAction.js';
+import { createFormulaContext } from '../utils/createFormulaContext.js';
 /**
  * Set up an api for a component.
  * API requests are either proxied through toddle's back-end

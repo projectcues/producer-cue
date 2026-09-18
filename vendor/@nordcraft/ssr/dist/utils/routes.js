@@ -1,14 +1,14 @@
-import { isPageComponent } from '@nordcraft/core/dist/component/isPageComponent';
-import { applyFormula, isToddleFormula, } from '@nordcraft/core/dist/formula/formula';
-import {} from '@nordcraft/core/dist/formula/formulaTypes';
+import { isPageComponent } from '@nordcraft/core/dist/component/isPageComponent.js';
+import { applyFormula, isToddleFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import {} from '@nordcraft/core/dist/formula/formulaTypes.js';
 import { createStylesheet } from '@nordcraft/core/dist/styling/style.css';
-import { theme as defaultTheme } from '@nordcraft/core/dist/styling/theme.const';
-import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections';
-import { toBoolean } from '@nordcraft/core/dist/utils/util';
-import { takeIncludedComponents } from '../components/utils';
-import { generateCustomCodeFile, hasCustomCode, takeReferencedFormulasAndActions, } from '../custom-code/codeRefs';
-import { getServerToddleObject } from '../rendering/formulaContext';
-import { removeTestData } from '../rendering/testData';
+import { theme as defaultTheme } from '@nordcraft/core/dist/styling/theme.const.js';
+import { filterObject, mapObject } from '@nordcraft/core/dist/utils/collections.js';
+import { toBoolean } from '@nordcraft/core/dist/utils/util.js';
+import { takeIncludedComponents } from '../components/utils.js';
+import { generateCustomCodeFile, hasCustomCode, takeReferencedFormulasAndActions, } from '../custom-code/codeRefs.js';
+import { getServerToddleObject } from '../rendering/formulaContext.js';
+import { removeTestData } from '../rendering/testData.js';
 export const splitRoutes = ({ branchName, files, project, }) => {
     const filesMap = {};
     const stylesMap = {};

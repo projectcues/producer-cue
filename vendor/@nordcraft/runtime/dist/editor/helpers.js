@@ -1,10 +1,10 @@
-import { findNearestLine } from '../utils/findNearestLine';
-import { isElementInViewport } from '../utils/isElementInViewport';
-import { stripNodeIdRepeatIndices } from '../utils/nodes';
-import { tryStartViewTransition } from '../utils/tryStartViewTransition';
-import { DRAG_REORDER_CLASSNAME } from './drag-drop/dragReorder';
-import { removeDropHighlight, setDropHighlight, setExternalDropHighlight, } from './drag-drop/dropHighlight';
-import { getInsertAreas } from './drag-drop/getInsertAreas';
+import { findNearestLine } from '../utils/findNearestLine.js';
+import { isElementInViewport } from '../utils/isElementInViewport.js';
+import { stripNodeIdRepeatIndices } from '../utils/nodes.js';
+import { tryStartViewTransition } from '../utils/tryStartViewTransition.js';
+import { DRAG_REORDER_CLASSNAME } from './drag-drop/dragReorder.js';
+import { removeDropHighlight, setDropHighlight, setExternalDropHighlight, } from './drag-drop/dropHighlight.js';
+import { getInsertAreas } from './drag-drop/getInsertAreas.js';
 const OVERLAP_OFFSET_PX = 100;
 export const DRAG_MOVE_CLASSNAME = '__drag-mode--move';
 const voidElements = new Set([

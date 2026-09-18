@@ -1,4 +1,4 @@
-import { isDefined } from './util';
+import { isDefined } from './util.js';
 export const isObject = (input) => typeof input === 'object' && input !== null;
 export const mapObject = (object, f) => {
     const result = {};

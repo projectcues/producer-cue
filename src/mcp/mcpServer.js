@@ -396,6 +396,8 @@ export async function startStdioServer() {
   }
 }
 
+export const startMcpServer = startStdioServer
+
 export async function executeRpc(request) {
   const { jsonrpc, id, method, params } = request
 

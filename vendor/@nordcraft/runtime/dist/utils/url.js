@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 import { compile } from 'path-to-regexp';
 export const getLocationUrl = ({ query, page, route, params, hash, }) => {
     let path;

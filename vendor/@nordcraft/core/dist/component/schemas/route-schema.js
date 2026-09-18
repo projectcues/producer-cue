@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { FormulaSchema } from './formula-schema';
-import { SCHEMA_DESCRIPTIONS } from './zod-schemas';
+import { FormulaSchema } from './formula-schema.js';
+import { SCHEMA_DESCRIPTIONS } from './zod-schemas.js';
 const HeadTagTypesSchema = z
     .enum(['meta', 'link', 'script', 'noscript', 'style'])
     .describe('Available head tags.');

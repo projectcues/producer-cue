@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 export const getNodeAndAncestors = (component, root, id) => {
     if (typeof id !== 'string' || id.length === 0) {
         return undefined;

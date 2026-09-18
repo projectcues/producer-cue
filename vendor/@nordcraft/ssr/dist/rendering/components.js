@@ -1,13 +1,13 @@
-import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent';
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { getClassName, getPathClassName, getStaticStyleAndVariants, toValidClassName, } from '@nordcraft/core/dist/styling/className';
-import { appendUnit } from '@nordcraft/core/dist/styling/customProperty';
-import { filterObject, mapValues } from '@nordcraft/core/dist/utils/collections';
-import { getNodeSelector } from '@nordcraft/core/dist/utils/getNodeSelector';
-import { VOID_HTML_ELEMENTS } from '@nordcraft/core/dist/utils/html';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
-import { escapeAttrValue } from 'xss';
-import { getNodeAttrs, toEncodedText } from './attributes';
+import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent.js';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { getClassName, getPathClassName, getStaticStyleAndVariants, toValidClassName, } from '@nordcraft/core/dist/styling/className.js';
+import { appendUnit } from '@nordcraft/core/dist/styling/customProperty.js';
+import { filterObject, mapValues } from '@nordcraft/core/dist/utils/collections.js';
+import { getNodeSelector } from '@nordcraft/core/dist/utils/getNodeSelector.js';
+import { VOID_HTML_ELEMENTS } from '@nordcraft/core/dist/utils/html.js';
+import xss from 'xss';
+const escapeAttrValue = xss.escapeAttrValue;
+import { getNodeAttrs, toEncodedText } from './attributes.js';
 const renderComponent = async ({ path, apiCache, children, component, data, env, evaluateComponentApis, files, toddle, includedComponents, instance, packageName, projectId, req, updateApiCache, addCustomProperty, namespace, }) => {
     const renderNode = async ({ id, path, node, data, packageName, isComponentRootNode = false, namespace, }) => {
         if (!node) {

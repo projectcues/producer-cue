@@ -1,4 +1,4 @@
-import { valueFormula } from '@nordcraft/core/dist/formula/formulaUtils';
+import { valueFormula } from '@nordcraft/core/dist/formula/formulaUtils.js';
 /**
  * Modifies all link nodes on a component
  * NOTE: alters in place

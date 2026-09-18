@@ -1,5 +1,5 @@
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
 const REGEXP_QUOTE = /"/g;
 const REGEXP_LT = /</g;
 const REGEXP_GT = />/g;

@@ -1,8 +1,8 @@
-import { omitKeys } from '../utils/collections';
-import { isDefined } from '../utils/util';
-import { getClassName, getStaticStyleAndVariants, toValidClassName, } from './className';
-import { getThemeCss } from './theme';
-import { variantSelector } from './variantSelector';
+import { omitKeys } from '../utils/collections.js';
+import { isDefined } from '../utils/util.js';
+import { getClassName, getStaticStyleAndVariants, toValidClassName, } from './className.js';
+import { getThemeCss } from './theme.js';
+import { variantSelector } from './variantSelector.js';
 const LEGACY_BREAKPOINTS = {
     large: 1440,
     small: 576,

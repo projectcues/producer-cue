@@ -1,4 +1,4 @@
-import { toBoolean } from '@nordcraft/core/dist/utils/util';
+import { toBoolean } from '@nordcraft/core/dist/utils/util.js';
 const handler = ([inputString, regex, globalFlag, ignoreCaseFlag, multiLineFlag,]) => {
     if (typeof inputString !== 'string' || typeof regex !== 'string') {
         return [];

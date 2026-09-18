@@ -1,4 +1,4 @@
-import { isDefined } from '../utils/util';
+import { isDefined } from '../utils/util.js';
 export function* getActionsInAction(action, path = []) {
     if (!isDefined(action)) {
         return;

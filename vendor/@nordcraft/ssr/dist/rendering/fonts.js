@@ -1,4 +1,4 @@
-import { easySort } from '@nordcraft/core/dist/utils/collections';
+import { easySort } from '@nordcraft/core/dist/utils/collections.js';
 export const getFontCssUrl = ({ fonts, baseForAbsoluteUrls, basePath = '/.toddle/fonts/stylesheet/css2', }) => {
     if (fonts.length === 0) {
         return;

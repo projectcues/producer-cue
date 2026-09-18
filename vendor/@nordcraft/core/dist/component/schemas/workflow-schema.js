@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ActionModelSchema } from './action-schema';
-import { MetadataSchema, SCHEMA_DESCRIPTIONS } from './zod-schemas';
+import { ActionModelSchema } from './action-schema.js';
+import { MetadataSchema, SCHEMA_DESCRIPTIONS } from './zod-schemas.js';
 export const ComponentWorkflowSchema = z
     .object({
     '@nordcraft/metadata': MetadataSchema.nullish().describe(SCHEMA_DESCRIPTIONS.metadata('workflow')),

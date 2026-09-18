@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
-import { createApiEvent, createApiRequest, isApiError, requestHash, } from '@nordcraft/core/dist/api/api';
-import { isEventStreamHeader, isImageHeader, isJsonHeader, isJsonStreamHeader, isTextHeader, mapHeadersToObject, } from '@nordcraft/core/dist/api/headers';
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { omitPaths, sortObjectEntries, } from '@nordcraft/core/dist/utils/collections';
-import { PROXY_TEMPLATES_IN_BODY, PROXY_URL_HEADER, validateUrl, } from '@nordcraft/core/dist/utils/url';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
-import { handleAction } from '../events/handleAction';
-import { createFormulaContext } from '../utils/createFormulaContext';
-import { ApiAbortHandler } from './apiUtils';
+import { createApiEvent, createApiRequest, isApiError, requestHash, } from '@nordcraft/core/dist/api/api.js';
+import { isEventStreamHeader, isImageHeader, isJsonHeader, isJsonStreamHeader, isTextHeader, mapHeadersToObject, } from '@nordcraft/core/dist/api/headers.js';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { omitPaths, sortObjectEntries, } from '@nordcraft/core/dist/utils/collections.js';
+import { PROXY_TEMPLATES_IN_BODY, PROXY_URL_HEADER, validateUrl, } from '@nordcraft/core/dist/utils/url.js';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
+import { handleAction } from '../events/handleAction.js';
+import { createFormulaContext } from '../utils/createFormulaContext.js';
+import { ApiAbortHandler } from './apiUtils.js';
 /**
  * Set up an api v2 for a component.
  */

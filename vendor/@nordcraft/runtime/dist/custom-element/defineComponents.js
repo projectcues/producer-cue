@@ -1,5 +1,5 @@
-import { safeCustomElementName } from '@nordcraft/core/dist/utils/customElements';
-import { ToddleComponent } from './ToddleComponent';
+import { safeCustomElementName } from '@nordcraft/core/dist/utils/customElements.js';
+import { ToddleComponent } from './ToddleComponent.js';
 /**
  * Define each component as a new web component
  *

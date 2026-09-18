@@ -1,5 +1,5 @@
-import { getPathClassName } from '../styling/className';
-import { variantSelector } from '../styling/variantSelector';
+import { getPathClassName } from '../styling/className.js';
+import { variantSelector } from '../styling/variantSelector.js';
 export function getNodeSelector(path, { componentName, nodeId, variant } = {}) {
     let selector = `.${getPathClassName(path)}`;
     if (componentName) {

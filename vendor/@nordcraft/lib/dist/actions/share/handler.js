@@ -1,4 +1,4 @@
-import { isDefined } from '@nordcraft/core/dist/utils/util';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
 const handler = ([url, title, text]) => {
     const validInput = (value) => isDefined(value) && typeof value === 'string';
     if (!validInput(url) && !validInput(title) && !validInput(text)) {

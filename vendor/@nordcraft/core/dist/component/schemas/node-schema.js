@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { EventModelSchema } from './event-schema';
-import { FormulaSchema } from './formula-schema';
-import { SCHEMA_DESCRIPTIONS } from './zod-schemas';
+import { EventModelSchema } from './event-schema.js';
+import { FormulaSchema } from './formula-schema.js';
+import { SCHEMA_DESCRIPTIONS } from './zod-schemas.js';
 // Style and Animation
 const NodeStyleModelSchema = z.record(z.string(), z.string());
 const AnimationKeyframeSchema = z.object({

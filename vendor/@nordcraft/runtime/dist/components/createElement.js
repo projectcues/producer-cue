@@ -1,15 +1,15 @@
-import { applyFormula } from '@nordcraft/core/dist/formula/formula';
-import { getClassName, getPathClassName, toValidClassName, } from '@nordcraft/core/dist/styling/className';
-import { appendUnit } from '@nordcraft/core/dist/styling/customProperty';
-import { getNodeSelector } from '@nordcraft/core/dist/utils/getNodeSelector';
-import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
-import { handleAction } from '../events/handleAction';
-import { formulaHasValue } from '../utils/formulaHasValue';
-import { getDragData } from '../utils/getDragData';
-import { getElementTagName } from '../utils/getElementTagName';
-import { setAttribute } from '../utils/setAttribute';
-import { subscribeCustomProperty } from '../utils/subscribeCustomProperty';
-import { createNode } from './createNode';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula.js';
+import { getClassName, getPathClassName, toValidClassName, } from '@nordcraft/core/dist/styling/className.js';
+import { appendUnit } from '@nordcraft/core/dist/styling/customProperty.js';
+import { getNodeSelector } from '@nordcraft/core/dist/utils/getNodeSelector.js';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util.js';
+import { handleAction } from '../events/handleAction.js';
+import { formulaHasValue } from '../utils/formulaHasValue.js';
+import { getDragData } from '../utils/getDragData.js';
+import { getElementTagName } from '../utils/getElementTagName.js';
+import { setAttribute } from '../utils/setAttribute.js';
+import { subscribeCustomProperty } from '../utils/subscribeCustomProperty.js';
+import { createNode } from './createNode.js';
 export function createElement({ node, dataSignal, id, path, ctx, namespace, instance, slotRepeatIndex, }) {
     const tag = getElementTagName(node, ctx, id);
     switch (tag) {

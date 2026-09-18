@@ -1,5 +1,5 @@
-import { renderPageBody } from '@nordcraft/ssr/dist/rendering/components'
-import { createStylesheet } from '@nordcraft/core/dist/styling/style.css'
+import { renderPageBody } from '@nordcraft/ssr/dist/rendering/components.js'
+import { createStylesheet } from '@nordcraft/core/dist/styling/style.css.js'
 
 /**
  * Renders a Nordcraft Project Component into production-ready SSR HTML and CSS.

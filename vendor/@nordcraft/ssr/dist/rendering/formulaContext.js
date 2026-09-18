@@ -1,11 +1,11 @@
-import { mapHeadersToObject } from '@nordcraft/core/dist/api/headers';
-import { applyFormula, isToddleFormula, } from '@nordcraft/core/dist/formula/formula';
-import { filterObject, mapValues } from '@nordcraft/core/dist/utils/collections';
-import { isDefined } from '@nordcraft/core/dist/utils/util';
-import * as libFormulas from '@nordcraft/std-lib/dist/formulas';
-import { getPathSegments } from '../routing/routing';
-import { getRequestCookies } from './cookies';
-import { escapeSearchParameters } from './request';
+import { mapHeadersToObject } from '@nordcraft/core/dist/api/headers.js';
+import { applyFormula, isToddleFormula, } from '@nordcraft/core/dist/formula/formula.js';
+import { filterObject, mapValues } from '@nordcraft/core/dist/utils/collections.js';
+import { isDefined } from '@nordcraft/core/dist/utils/util.js';
+import * as libFormulas from '@nordcraft/std-lib/dist/formulas.js';
+import { getPathSegments } from '../routing/routing.js';
+import { getRequestCookies } from './cookies.js';
+import { escapeSearchParameters } from './request.js';
 /**
  * Builds a FormulaContext that can be used to evaluate formulas for a page component
  * It also initializes data->Variables with their initial values based on the FormulaContext
