@@ -1,0 +1,25 @@
+{
+  "name": "@nordcraft/core",
+  "license": "Apache-2.0",
+  "type": "module",
+  "homepage": "https://github.com/nordcraftengine/nordcraft",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nordcraftengine/nordcraft.git",
+    "directory": "packages/core"
+  },
+  "scripts": {
+    "build": "tsgo",
+    "npm-publish": "bun run build && bun publish --access public",
+    "typecheck": "tsgo --noEmit",
+    "watch": "tsgo -w"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "zod": "4.2.1"
+  },
+  "main": "dist/index.js"
+}

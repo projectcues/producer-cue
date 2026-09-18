@@ -1,0 +1,1804 @@
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/prefer-optional-chain */
+/* eslint-disable no-case-declarations */
+/* eslint-disable no-fallthrough */
+import { isLegacyApi } from '@nordcraft/core/dist/api/api';
+import { isLegacyPluginAction } from '@nordcraft/core/dist/component/actionUtils';
+import { HeadTagTypes, } from '@nordcraft/core/dist/component/component.types';
+import { isPageComponent } from '@nordcraft/core/dist/component/isPageComponent';
+import { applyFormula, isToddleFormula, } from '@nordcraft/core/dist/formula/formula';
+import {} from '@nordcraft/core/dist/formula/formulaTypes';
+import { appendUnit } from '@nordcraft/core/dist/styling/customProperty';
+import { getThemeCss, getThemeEntries, renderThemeValues, } from '@nordcraft/core/dist/styling/theme';
+import { THEME_COOKIE_NAME, THEME_DATA_ATTRIBUTE, } from '@nordcraft/core/dist/styling/theme.const';
+import { filterObject, mapObject, omitKeys, } from '@nordcraft/core/dist/utils/collections';
+import { safeFunctionName } from '@nordcraft/core/dist/utils/handlerUtils';
+import { isDefined } from '@nordcraft/core/dist/utils/util';
+import * as libActions from '@nordcraft/std-lib/dist/actions';
+import * as libFormulas from '@nordcraft/std-lib/dist/formulas';
+import fastDeepEqual from 'fast-deep-equal';
+import { domToCanvas } from 'modern-screenshot';
+import { createLegacyAPI } from './api/createAPI';
+import { createAPI } from './api/createAPIv2';
+import { createNode } from './components/createNode';
+import { isContextProvider } from './context/isContextProvider';
+import { createPanicScreen } from './debug/panicScreen';
+import { sendEditorToast } from './debug/sendEditorToast';
+import { CSS_VAR_VIEWPORT_HEIGHT, DATA_ATTR_VIEWPORT_HEIGHT, } from './editor/const';
+import { handleDragAltToggle, handleDragEnded, handleDragMouseMove, handleDragStarted, } from './editor/drag-drop/dragHandlers';
+import { throttleToIdleCallback } from './editor/editorUtils';
+import { introspectApiRequest } from './editor/graphql';
+import { isInputTarget } from './editor/input';
+import { handleInsertEnded, handleInsertMouseMove, handleInsertStarted, } from './editor/insert/insertHandlers';
+import { updateComponentLinks } from './editor/links';
+import { getRectData } from './editor/overlay';
+import { postMessageToEditor } from './editor/postMessageToEditor';
+import { requestResizeCanvas } from './editor/resizeCanvas';
+import { convertViewportUnitsToEmulatedViewportUnits, insertStyles, styleToCss, } from './editor/style';
+import { handleTextMouseDown } from './editor/text-selection/mouseDown';
+import { handleTextMouseMove } from './editor/text-selection/mouseMove';
+import { handleTextNodeSelection } from './editor/text-selection/selection';
+import { waitForViewportWidth } from './editor/viewportWidth';
+import { handleAction } from './events/handleAction';
+import { signal } from './signal/signal';
+import { createFormulaCache } from './utils/createFormulaCache';
+import { getThemeSignal } from './utils/getThemeSignal';
+import { clamp, toSeconds } from './utils/helpers';
+import { markSelectedElement } from './utils/markSelectedElement';
+import { getNodeAndAncestors, isNodeOrAncestorConditional, stripNodeIdRepeatIndices, } from './utils/nodes';
+import { getScrollStateRestorer, storeScrollState, } from './utils/storeScrollState';
+let env;
+export const initGlobalObject = () => {
+    env = {
+        isServer: false,
+        branchName: window.__toddle.branch,
+        request: undefined,
+        runtime: 'preview',
+        logErrors: true,
+    };
+    window.toddle = (() => {
+        const legacyActions = {};
+        const legacyFormulas = {};
+        const argumentInputDataList = {};
+        const toddle = {
+            isEqual: fastDeepEqual,
+            errors: [],
+            formulas: {},
+            actions: {},
+            registerAction: (name, handler) => {
+                if (legacyActions[name]) {
+                    console.error('There already exists an action with the name ', name);
+                    return;
+                }
+                legacyActions[name] = handler;
+            },
+            clearLegacyActions: () => {
+                Object.keys(legacyActions)
+                    .filter((key) => !key.startsWith('@toddle/'))
+                    .forEach((key) => {
+                    delete legacyActions[key];
+                });
+            },
+            getAction: (name) => legacyActions[name],
+            registerFormula: (name, handler, getArgumentInputData) => {
+                if (legacyFormulas[name]) {
+                    console.error('There already exists a formula with the name ', name);
+                    return;
+                }
+                legacyFormulas[name] = handler;
+                if (getArgumentInputData) {
+                    argumentInputDataList[name] = getArgumentInputData;
+                }
+            },
+            clearLegacyFormulas: () => {
+                Object.keys(legacyFormulas)
+                    .filter((key) => !key.startsWith('@toddle/'))
+                    .forEach((key) => {
+                    delete legacyFormulas[key];
+                });
+            },
+            getFormula: (name) => legacyFormulas[name],
+            getCustomAction: (name, packageName) => {
+                return (toddle.actions[packageName ?? window.__toddle.project]?.[name] ??
+                    toddle.actions[window.__toddle.project]?.[name]);
+            },
+            getCustomFormula: (name, packageName) => {
+                return (toddle.formulas[packageName ?? window.__toddle.project]?.[name] ??
+                    toddle.formulas[window.__toddle.project]?.[name]);
+            },
+            // eslint-disable-next-line max-params
+            getArgumentInputData: (formulaName, args, argIndex, data) => argumentInputDataList[formulaName]?.(args, argIndex, data) || data,
+            data: {},
+            eventLog: [],
+            project: window.__toddle.project,
+            branch: window.__toddle.branch,
+            commit: window.__toddle.commit,
+            components: window.__toddle.components,
+            pageState: window.__toddle.pageState,
+            locationSignal: signal({
+                query: {},
+                params: {},
+            }),
+            env,
+        };
+        return toddle;
+    })();
+    // load default formulas and actions
+    Object.entries(libFormulas).forEach(([name, module]) => window.toddle.registerFormula('@toddle/' + name, module.default, 'getArgumentInputData' in module
+        ? module.getArgumentInputData
+        : undefined));
+    Object.entries(libActions).forEach(([name, module]) => window.toddle.registerAction('@toddle/' + name, module.default));
+};
+const EMPTY_COMPONENT_DATA = {
+    Location: {
+        query: {},
+        params: {},
+        page: '/',
+        path: '/',
+        hash: '',
+    },
+    Attributes: {},
+    Variables: {},
+    Apis: {},
+};
+// imported by "/.toddle/preview" (see worker/src/preview.ts)
+export const createRoot = (domNode = document.getElementById('App')) => {
+    if (!domNode) {
+        throw new Error('Cant find root domNode');
+    }
+    const dataSignal = signal(EMPTY_COMPONENT_DATA);
+    let ctxDataSignal;
+    let ctx = null;
+    let mode = 'design';
+    // Signal for overriding conditional elements when they're
+    // selected in design mode and for reverting back to normal
+    // in test mode
+    const showSignal = signal({
+        displayedNodes: [],
+        testMode: false,
+    });
+    const themeSignal = signal(null);
+    themeSignal.subscribe((theme) => {
+        if (isDefined(theme)) {
+            document.documentElement.setAttribute(THEME_DATA_ATTRIBUTE, theme);
+        }
+        else {
+            document.documentElement.removeAttribute(THEME_DATA_ATTRIBUTE);
+        }
+        dataSignal.update((data) => ({
+            ...data,
+            Page: {
+                ...(data.Page ?? {}),
+                Theme: theme ?? null,
+            },
+        }));
+    });
+    const resizeCanvasOptions = {};
+    window.toddle._preview = { showSignal };
+    document.body.setAttribute('data-mode', 'design');
+    let components = null;
+    let packageComponents = null;
+    const getAllComponents = () => [
+        ...(components ?? []),
+        ...(packageComponents ?? []),
+    ];
+    let component = null;
+    let componentFormulaData = {};
+    const reportFormulaEvaluation = (path, data, ctx) => {
+        if (data !== undefined &&
+            path.length > 0 &&
+            // We are currently skipping all children formulas to lower the scope of reporting to what the user can see in the canvas
+            ctx.component?.name === component?.name) {
+            try {
+                componentFormulaData[path.join('/')] = JSON.parse(JSON.stringify(data));
+            }
+            catch {
+                componentFormulaData[path.join('/')] =
+                    `[Unserializable value of type ${typeof data}]`;
+            }
+            finally {
+                reportComponentFormulaData();
+            }
+        }
+    };
+    const reportComponentFormulaData = throttleToIdleCallback(() => {
+        postMessageToEditor({
+            type: 'componentFormulaData',
+            data: componentFormulaData,
+            component: component?.name,
+        });
+        componentFormulaData = {};
+    });
+    const selectionState = {
+        anchor: null,
+        mode: 'char',
+    };
+    const pointerState = {
+        lastPressPosition: { x: 0, y: 0 },
+        buttons: 0,
+        lastPressTime: 0,
+        pressCount: 0,
+    };
+    let selectedNodeId = null;
+    let highlightedNodeId = null;
+    let styleVariantSelection = null;
+    let routeSignal = null;
+    let dragState = null;
+    let insertState = null;
+    let animationState = null;
+    let altKey = false;
+    let metaKey = false;
+    let previewStyleAnimationFrame = -1;
+    let timelineTimeAnimationFrame = -1;
+    const setupDataSignalSubscribers = () => {
+        dataSignal.subscribe((data) => {
+            if (component && components && packageComponents && data) {
+                try {
+                    postMessageToEditor({ type: 'data', data });
+                }
+                catch {
+                    // If we're unable to send the data, let's try to JSON serialize it
+                    postMessageToEditor({
+                        type: 'data',
+                        data: JSON.parse(JSON.stringify(data)),
+                    });
+                }
+            }
+        });
+    };
+    setupDataSignalSubscribers();
+    window.addEventListener('message', async (message) => {
+        if (!message.isTrusted) {
+            console.error('UNTRUSTED MESSAGE');
+        }
+        switch (message.data?.type) {
+            case 'component': {
+                if (!message.data.component) {
+                    return;
+                }
+                let scrollStateRestorer;
+                const switchComponent = message.data.component.name !== component?.name;
+                // Re-initialize state, subscribers, signals and ctx when switching component
+                // But only if a component was already loaded
+                if (switchComponent && component) {
+                    // Store scroll state for the previous component
+                    storeScrollState(component?.name);
+                    // Remove all subscribers from the previous showSignal
+                    showSignal.cleanSubscribers();
+                    // Clear any previously overridden conditional elements
+                    showSignal.set({ displayedNodes: [], testMode: mode === 'test' });
+                    // Restore scroll state for the new component
+                    scrollStateRestorer = getScrollStateRestorer(message.data.component.name);
+                    // Destroy the dataSignal (including subscribers) for the previous component
+                    dataSignal.destroy();
+                    // Reset all evaluated formula data
+                    componentFormulaData = {};
+                    // Re-subscribe all dataSignal subscribers
+                    setupDataSignalSubscribers();
+                    // Re-initialize the data signal for the new component
+                    ctxDataSignal?.destroy();
+                    ctx = null;
+                }
+                component = updateComponentLinks(message.data.component);
+                if (components && packageComponents && ctx) {
+                    // Since we're not receiving the current component in
+                    // "components" updates (see `SetupCanvas` action)
+                    // we need to manually update the component in components
+                    const componentIndex = components.findIndex((c) => c.name === component.name);
+                    if (componentIndex !== -1) {
+                        components[componentIndex] = component;
+                    }
+                    else {
+                        components.push(component);
+                    }
+                    ctx.components = getAllComponents();
+                }
+                dataSignal.update((data) => {
+                    const newData = {
+                        // When switching component, reset data to empty API data etc.
+                        ...(switchComponent ? EMPTY_COMPONENT_DATA : data),
+                        Location: data.Location
+                            ? {
+                                ...data.Location,
+                                path: component?.page ?? '',
+                            }
+                            : undefined,
+                        // Ensure that URL parameters are only available for pages and not components
+                        'URL parameters': component?.route
+                            ? data['URL parameters']
+                            : undefined,
+                    };
+                    return newData;
+                });
+                update();
+                if (selectedNodeId) {
+                    if (styleVariantSelection) {
+                        updateSelectedStyleVariant(styleVariantSelection.styleVariantIndex);
+                    }
+                }
+                requestAnimationFrame(() => {
+                    scrollStateRestorer?.((nodeId) => document.querySelector(`[data-id="${nodeId}"]`));
+                });
+                break;
+            }
+            case 'components': {
+                if (Array.isArray(message.data.components)) {
+                    components = message.data.components.map(updateComponentLinks);
+                    const allComponents = getAllComponents();
+                    if (ctx) {
+                        ctx.components = allComponents;
+                    }
+                    updateStyle(component);
+                    // Since changes to other components might affect the current component
+                    // (if context was changed or a component node should be re-rendered)
+                    update({ forceRerender: true });
+                }
+                break;
+            }
+            case 'global_formulas': {
+                window.toddle.clearLegacyFormulas?.();
+                registerFormulas(message.data.formulas ?? {});
+                break;
+            }
+            case 'global_actions': {
+                window.toddle.clearLegacyActions?.();
+                registerActions(message.data.actions ?? {});
+                break;
+            }
+            case 'packages': {
+                if (message.data.packages) {
+                    packageComponents = Object.values(message.data.packages ?? {})
+                        .flatMap((p) => Object.values(p.components).map((c) => ({
+                        ...c,
+                        name: `${p.manifest.name}/${c.name}`,
+                    })))
+                        .map(updateComponentLinks);
+                    const allComponents = getAllComponents();
+                    if (ctx) {
+                        ctx.components = allComponents;
+                    }
+                    updateStyle(component);
+                    update();
+                }
+                Object.values(message.data.packages ?? {}).forEach((pkg) => {
+                    registerActions(pkg.actions, pkg.manifest.name);
+                    registerFormulas(pkg.formulas, pkg.manifest.name);
+                });
+                break;
+            }
+            case 'theme': {
+                insertTheme(document.head, message.data.theme);
+                break;
+            }
+            case 'mode': {
+                mode = message.data.mode;
+                document.body.setAttribute('data-mode', message.data.mode);
+                updateConditionalElements();
+                window.dispatchEvent(new CustomEvent('selected-node-changed'));
+                requestResizeCanvas(resizeCanvasOptions);
+                syncOverlayRects();
+                break;
+            }
+            case 'attrs': {
+                if (message.data.attrs &&
+                    fastDeepEqual(message.data.attrs, dataSignal.get().Attributes) ===
+                        false) {
+                    const attrs = message.data.attrs;
+                    dataSignal.update((data) => {
+                        // TODO: We should figure out if "Props" is used anywhere and get rid of it if it's not
+                        const newData = {
+                            ...data,
+                            Location: data.Location && component?.page
+                                ? {
+                                    ...data.Location,
+                                    query: attrs,
+                                }
+                                : data.Location,
+                            Props: attrs ?? {},
+                        };
+                        return newData;
+                    });
+                }
+                break;
+            }
+            case 'selection': {
+                if (selectedNodeId !== message.data.selectedNodeId) {
+                    selectedNodeId = message.data.selectedNodeId ?? null;
+                    window.dispatchEvent(new CustomEvent('selected-node-changed'));
+                    clearSelectedStyleVariant();
+                    updateConditionalElements();
+                    const node = getDOMNodeFromNodeId(selectedNodeId);
+                    markSelectedElement(node);
+                    if (node &&
+                        node instanceof HTMLElement &&
+                        node.getAttribute('data-node-type') === 'text') {
+                        requestAnimationFrame(() => {
+                            handleTextNodeSelection(node, {
+                                onInput: () => {
+                                    syncOverlayRects();
+                                },
+                            });
+                        });
+                    }
+                }
+                syncOverlayRects();
+                return;
+            }
+            case 'highlight': {
+                const highlightId = message.data.highlightedNodeId;
+                highlightedNodeId =
+                    typeof highlightId === 'string'
+                        ? highlightId
+                            .split('.')
+                            .map((part) => part.split('(')[0])
+                            .join('.')
+                        : null;
+                syncOverlayRects();
+                return;
+            }
+            case 'mousedown': {
+                const { x, y } = message.data;
+                const node = getDOMNodeFromNodeId(selectedNodeId);
+                if (node &&
+                    node.getAttribute('data-node-type') === 'text' &&
+                    node instanceof HTMLElement) {
+                    handleTextMouseDown({
+                        node,
+                        x,
+                        y,
+                        pointerState,
+                        selectionState,
+                    });
+                }
+                break;
+            }
+            case 'mousemove': {
+                if (['insert-div', 'insert-text'].includes(message.data.canvasTool)) {
+                    if (insertState && !insertState.destroying) {
+                        handleInsertMouseMove(message.data, insertState);
+                        syncOverlayRects();
+                        return;
+                    }
+                    else if (!insertState?.destroying) {
+                        const elementType = message.data.canvasTool === 'insert-div' ? 'div' : 'text';
+                        insertState = handleInsertStarted(message.data, highlightedNodeId, elementType);
+                    }
+                }
+                if (dragState && !dragState.destroying) {
+                    handleDragMouseMove(message.data, dragState, metaKey);
+                    syncOverlayRects();
+                    return;
+                }
+                const node = getDOMNodeFromNodeId(selectedNodeId);
+                if (node &&
+                    node instanceof HTMLElement &&
+                    node.getAttribute('data-node-type') === 'text') {
+                    const { x, y, buttons } = message.data;
+                    const handled = handleTextMouseMove({
+                        node,
+                        x,
+                        y,
+                        buttons,
+                        pointerState,
+                        selectionState,
+                    });
+                    if (handled) {
+                        return;
+                    }
+                }
+            }
+            case 'click':
+            case 'dblclick':
+                if (mode === 'test' || !component) {
+                    return;
+                }
+                const { x, y, type } = message.data;
+                const elementsAtPoint = document.elementsFromPoint(x, y);
+                const element = elementsAtPoint.find((elem) => {
+                    const id = elem.getAttribute('data-id');
+                    if (typeof id !== 'string' ||
+                        component === null ||
+                        elem.getAttribute('data-component')) {
+                        return false;
+                    }
+                    const nodeId = getNodeId(component, id.split('.').slice(1));
+                    const node = nodeId ? component?.nodes?.[nodeId] : undefined;
+                    if (!node) {
+                        return false;
+                    }
+                    if (elem.getAttribute('data-node-type') === 'text') {
+                        return (
+                        // Select text nodes if the meta key is pressed or the text node is double-clicked
+                        metaKey || type === 'dblclick');
+                    }
+                    return true;
+                });
+                const id = element?.getAttribute('data-id') ?? null;
+                const elementIsSameAsSelected = id && id === selectedNodeId;
+                if (elementIsSameAsSelected &&
+                    element?.getAttribute('data-node-type') === 'text') {
+                    return;
+                }
+                if (type === 'click') {
+                    if (message.data.metaKey) {
+                        // Figure out if the clicked element is a text element
+                        // or if one of its descendants is a text element
+                        const root = component.nodes?.root;
+                        if (root && id) {
+                            const nodeLookup = getNodeAndAncestors(component, root, id);
+                            if (nodeLookup?.node.type === 'text') {
+                                postMessageToEditor({
+                                    type: 'selection',
+                                    selectedNodeId: id,
+                                });
+                            }
+                            else {
+                                const firstTextChild = nodeLookup?.node.type === 'element'
+                                    ? nodeLookup.node.children?.find((c) => component?.nodes?.[c]?.type === 'text')
+                                    : undefined;
+                                if (firstTextChild) {
+                                    postMessageToEditor({
+                                        type: 'selection',
+                                        selectedNodeId: `${id}.0`,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        postMessageToEditor({
+                            type: 'selection',
+                            selectedNodeId: id,
+                        });
+                    }
+                }
+                else if (type === 'mousemove' && id !== highlightedNodeId) {
+                    // Do not send highlight if cursor is inside current selectedElement and current selected element is a text type
+                    const selectedNode = getDOMNodeFromNodeId(selectedNodeId);
+                    const selectedNodeIsText = selectedNode?.getAttribute('data-node-type') === 'text';
+                    const cursorInsideSelectedElement = selectedNode instanceof HTMLElement &&
+                        selectedNode.contains(document.elementFromPoint(x, y));
+                    if (selectedNodeIsText && cursorInsideSelectedElement) {
+                        // Highlight the text node if the cursor is inside the currently selected text node, even if the selected element has a different id than the text node (e.g. when clicking on a span inside a text node)
+                        const nodeId = selectedNode.getAttribute('data-id');
+                        postMessageToEditor({
+                            type: 'highlight',
+                            highlightedNodeId: stripNodeIdRepeatIndices(nodeId),
+                            exactHighlightedNodeId: nodeId,
+                        });
+                        return;
+                    }
+                    postMessageToEditor({
+                        type: 'highlight',
+                        highlightedNodeId: stripNodeIdRepeatIndices(id),
+                        exactHighlightedNodeId: id,
+                    });
+                }
+                else if (type === 'dblclick' &&
+                    id &&
+                    // We only allow dblclick --> navigation if we're not in test mode
+                    mode === 'design') {
+                    // Figure out if the clicked element is a component
+                    const root = component.nodes?.root;
+                    if (root) {
+                        const nodeLookup = getNodeAndAncestors(component, root, id);
+                        if (nodeLookup?.node.type === 'component' &&
+                            nodeLookup.node.name) {
+                            postMessageToEditor({
+                                type: 'navigate',
+                                name: nodeLookup.node.name,
+                            });
+                        }
+                        // Double click on text node should select the text node for editing
+                        else if (nodeLookup?.node.type === 'text') {
+                            postMessageToEditor({
+                                type: 'selection',
+                                selectedNodeId: id,
+                            });
+                        }
+                    }
+                }
+                break;
+            case 'style_variant_changed':
+                const { variantIndex } = message.data;
+                updateSelectedStyleVariant(variantIndex);
+                requestResizeCanvas(resizeCanvasOptions);
+                syncOverlayRects();
+                break;
+            case 'report_document_scroll_size':
+                requestResizeCanvas({
+                    force: true,
+                });
+                break;
+            case 'viewport_size': {
+                if (message.data.enabled) {
+                    resizeCanvasOptions.enabled = true;
+                    resizeCanvasOptions.viewport = { height: message.data.height };
+                    document.body.setAttribute(DATA_ATTR_VIEWPORT_HEIGHT, String(Math.round(Number(resizeCanvasOptions.viewport.height))));
+                    domNode.style.setProperty(CSS_VAR_VIEWPORT_HEIGHT, String(Math.round(Number(resizeCanvasOptions.viewport.height))));
+                    requestResizeCanvas(resizeCanvasOptions);
+                }
+                else {
+                    resizeCanvasOptions.enabled = false;
+                    domNode.style.removeProperty(CSS_VAR_VIEWPORT_HEIGHT);
+                    document.body.removeAttribute(DATA_ATTR_VIEWPORT_HEIGHT);
+                }
+                break;
+            }
+            case 'reload':
+                window.location.reload();
+                break;
+            case 'fetch_api': {
+                const { apiKey } = message.data;
+                dataSignal.update((data) => ({
+                    ...data,
+                    Apis: {
+                        ...data.Apis,
+                        [apiKey]: {
+                            isLoading: true,
+                            data: null,
+                            error: null,
+                        },
+                    },
+                }));
+                void ctx?.apis[apiKey]?.fetch({});
+                break;
+            }
+            case 'introspect_qraphql_api': {
+                const { apiKey } = message.data;
+                const api = component?.apis?.[apiKey];
+                if (api && !isLegacyApi(api) && component) {
+                    const formulaContext = {
+                        component,
+                        data: dataSignal.get(),
+                        root: document,
+                        package: ctx?.package,
+                        toddle: window.toddle,
+                        env,
+                        jsonPath: [],
+                    };
+                    const introspectionResult = await introspectApiRequest({
+                        api,
+                        componentName: component.name,
+                        formulaContext,
+                    });
+                    postMessageToEditor({
+                        type: 'introspectionResult',
+                        data: introspectionResult,
+                        apiKey,
+                    });
+                }
+                break;
+            }
+            case 'drag-started':
+                dragState = handleDragStarted(message.data, selectedNodeId, altKey);
+                break;
+            case 'drag-ended':
+                if (dragState) {
+                    const interval = setInterval(() => {
+                        syncOverlayRects();
+                    }, 1000 / 60);
+                    void handleDragEnded(message.data, dragState, component).then((newState) => {
+                        dragState = newState;
+                        clearInterval(interval);
+                    });
+                }
+                break;
+            case 'insert-started':
+                const elementType = message.data.canvasTool === 'insert-div' ? 'div' : 'text';
+                insertState = handleInsertStarted(message.data, highlightedNodeId, elementType);
+                break;
+            case 'insert-ended':
+                if (insertState) {
+                    const interval = setInterval(() => {
+                        syncOverlayRects();
+                    }, 1000 / 60);
+                    void handleInsertEnded(message.data, insertState).then((newState) => {
+                        insertState = newState;
+                        clearInterval(interval);
+                    });
+                }
+                break;
+            case 'keydown':
+            case 'keyup':
+                // If the `altKey` is pressed/released and the user is currently dragging, then restart the drag with/without a copy.
+                if (dragState &&
+                    !dragState.destroying &&
+                    message.data.altKey !== altKey) {
+                    void handleDragAltToggle(message.data.altKey, dragState).then((newState) => {
+                        dragState = newState;
+                    });
+                }
+                altKey = message.data.altKey;
+                metaKey = message.data.metaKey;
+                break;
+            case 'get_computed_style':
+                const selectedNode = getDOMNodeFromNodeId(selectedNodeId);
+                if (!selectedNode) {
+                    return;
+                }
+                const { styles } = message.data;
+                const computedStyle = window.getComputedStyle(selectedNode);
+                postMessageToEditor({
+                    type: 'computedStyle',
+                    computedStyle: Object.fromEntries((styles ?? []).map((style) => {
+                        const input = computedStyle.getPropertyValue(style);
+                        const allValues = input.split(' ');
+                        const result = allValues
+                            .map((value) => {
+                            // If it is a float or float with unit we want to round to 2 decimal
+                            if (value.match(/^(-?\d+)\.\d+([a-z]*|%?)$/)) {
+                                const split = value.match(/([0-9.]+)\s*(.*)/) ?? '';
+                                const number = split[1];
+                                const unit = split[2];
+                                const roundNumber = Number(Number(number).toFixed(2));
+                                const rounded = roundNumber.toString() + unit;
+                                return rounded;
+                            }
+                            else {
+                                return value;
+                            }
+                        })
+                            .join(' ');
+                        return [style, result];
+                    })),
+                    repeatedItemsValues: animationState?.repeatedElementsValues ?? [],
+                    timelineTime: animationState?.timelineTime ?? {
+                        delay: '0s',
+                        duration: '0s',
+                    },
+                });
+                break;
+            case 'set_timeline_keyframes':
+                const { keyframes } = message.data;
+                document.head.querySelector('[data-timeline-keyframes]')?.remove();
+                if (!keyframes) {
+                    return;
+                }
+                const styleElem = document.createElement('style');
+                styleElem.appendChild(document.createTextNode(`
+@keyframes preview_timeline {
+  ${Object.values(keyframes)
+                    .map(({ key, value, position, easing }) => `${Number(position) * 100}% {
+          ${key}: ${value};
+          ${easing ? `animation-timing-function: ${easing};` : ''}
+        }`)
+                    .join('\n')}
+}`));
+                styleElem.setAttribute('data-timeline-keyframes', '');
+                document.head.appendChild(styleElem);
+                syncOverlayRects();
+                break;
+            case 'set_timeline_time':
+                const { time, timingFunction, fillMode } = message.data;
+                cancelAnimationFrame(timelineTimeAnimationFrame);
+                timelineTimeAnimationFrame = requestAnimationFrame(() => {
+                    const animatedElementChanged = animationState?.animatedElementId !== selectedNodeId;
+                    animationState = {
+                        animatedElementId: time !== null ? selectedNodeId : null,
+                        time,
+                        timingFunction,
+                        fillMode,
+                        repeatedElementsValues: animationState?.repeatedElementsValues ?? [
+                            { delay: '0s', duration: '0s' },
+                        ],
+                        timelineTime: animationState?.timelineTime ?? {
+                            delay: '0s',
+                            duration: '1s',
+                        },
+                        iterationCount: animationState?.iterationCount ?? '1',
+                    };
+                    // Cleanup on null
+                    if (time === null) {
+                        document.head
+                            .querySelector('[data-id="preview-animation-styles"]')
+                            ?.remove();
+                        const style = document.body.style;
+                        // Remove all the properties that starts with --editor-timeline
+                        for (const prop of style) {
+                            if (prop.startsWith('--editor-timeline')) {
+                                style.removeProperty(prop);
+                            }
+                        }
+                        document.body.removeAttribute('data-animating');
+                        update();
+                        return;
+                    }
+                    document.body.setAttribute('data-animating', 'true');
+                    document.body.style.setProperty('--editor-timeline-timing-function', timingFunction ?? 'ease');
+                    document.body.style.setProperty('--editor-timeline-fill-mode', fillMode ?? 'none');
+                    const selectedNode = getDOMNodeFromNodeId(animationState.animatedElementId);
+                    let repeatedNodes = [];
+                    if (selectedNode) {
+                        if (selectedNode.parentElement) {
+                            repeatedNodes = Array.from(selectedNode.parentElement.children).filter((node) => node instanceof HTMLElement &&
+                                node
+                                    .getAttribute('data-id')
+                                    ?.startsWith(selectedNodeId + '('));
+                        }
+                        if (animatedElementChanged) {
+                            const computedStyle = window.getComputedStyle(selectedNode);
+                            animationState.iterationCount =
+                                computedStyle.animationIterationCount;
+                            animationState.repeatedElementsValues = [
+                                {
+                                    delay: `${toSeconds(computedStyle.animationDelay)}s`,
+                                    duration: `${toSeconds(computedStyle.animationDuration)}s`,
+                                },
+                            ];
+                            animationState.timelineTime = {
+                                delay: `${toSeconds(computedStyle.animationDelay)}s`,
+                                duration: `${toSeconds(computedStyle.animationDuration)}s`,
+                            };
+                            repeatedNodes.forEach((node) => {
+                                const nodeComputedStyle = window.getComputedStyle(node);
+                                animationState?.repeatedElementsValues.push({
+                                    delay: `${toSeconds(nodeComputedStyle.animationDelay)}s`,
+                                    duration: `${toSeconds(nodeComputedStyle.animationDuration)}s`,
+                                });
+                            });
+                        }
+                    }
+                    const animationDelay = parseFloat(animationState.repeatedElementsValues[0].delay);
+                    const animationDuration = parseFloat(animationState.repeatedElementsValues[0].duration);
+                    const timelineTime = parseFloat(animationState.timelineTime.delay) +
+                        parseFloat(animationState.timelineTime.duration);
+                    const timelinePosition = time * timelineTime;
+                    const calculatedDelay = timelinePosition - animationDelay;
+                    const progressTime = clamp(calculatedDelay, 0, animationDelay + animationDuration);
+                    document.body.style.setProperty('--editor-timeline-position-0', `${progressTime}s`);
+                    document.body.style.setProperty('--editor-timeline-duration-0', `${animationDuration}s`);
+                    repeatedNodes.forEach((node, index) => {
+                        const animationDelay = animationState
+                            ? parseFloat(animationState.repeatedElementsValues[index + 1].delay)
+                            : 0;
+                        const animationDuration = animationState
+                            ? parseFloat(animationState.repeatedElementsValues[index + 1].duration)
+                            : 1;
+                        const calculatedDelay = timelinePosition - animationDelay;
+                        const progressTime = clamp(calculatedDelay, 0, animationDelay + animationDuration);
+                        document.body.style.setProperty(`--editor-timeline-position-${index + 1}`, `${progressTime}s`);
+                        document.body.style.setProperty(`--editor-timeline-duration-${index + 1}`, `${animationDuration}s`);
+                    });
+                    if (animatedElementChanged && animationState?.animatedElementId) {
+                        let styleTag = document.head.querySelector('[data-id="preview-animation-styles"]');
+                        if (!styleTag) {
+                            styleTag = document.createElement('style');
+                            styleTag.setAttribute('data-id', 'preview-animation-styles');
+                            document.head.appendChild(styleTag);
+                        }
+                        styleTag.innerHTML = `body[data-mode="design"] [data-id="${animationState.animatedElementId}"] {
+                  animation: preview_timeline var(--editor-timeline-duration-0) paused normal !important;
+                  animation-fill-mode: var(--editor-timeline-fill-mode) !important;
+                  animation-timing-function: var(--editor-timeline-timing-function) !important;
+                  animation-delay: calc(0s - var(--editor-timeline-position-0)) !important;
+                  animation-play-state: paused !important;
+                  animation-iteration-count: ${animationState.iterationCount} !important
+                }`;
+                        repeatedNodes.forEach((node, index) => {
+                            styleTag.innerHTML += `
+                    body[data-mode="design"] [data-id="${node.getAttribute('data-id')}"] {
+                      animation: preview_timeline var(--editor-timeline-duration-${index + 1}) paused normal !important;
+                      animation-fill-mode: var(--editor-timeline-fill-mode) !important;
+                      animation-timing-function: var(--editor-timeline-timing-function) !important;
+                      animation-delay: calc(0s - var(--editor-timeline-position-${index + 1})) !important;
+                      animation-play-state: paused !important;
+                      animation-iteration-count: ${animationState?.iterationCount ?? 1} !important
+                    }`;
+                        });
+                    }
+                    syncOverlayRects();
+                });
+                break;
+            case 'preview_style':
+                const { styles: previewStyleStyles, theme } = message.data;
+                cancelAnimationFrame(previewStyleAnimationFrame);
+                previewStyleAnimationFrame = requestAnimationFrame(() => {
+                    // Update or create a new style tag and set the given styles with important priority
+                    let styleElement = document.head.querySelector('[data-id="selected-node-styles"]');
+                    // Cleanup when null styles are sent
+                    if (!previewStyleStyles) {
+                        styleElement?.remove();
+                        return;
+                    }
+                    if (!styleElement) {
+                        styleElement = document.createElement('style');
+                        styleElement.setAttribute('data-id', 'selected-node-styles');
+                        document.head.appendChild(styleElement);
+                    }
+                    // If style variant targets a pseudo-element, apply styles to it instead
+                    let pseudoElement = '';
+                    if (component && styleVariantSelection) {
+                        const rootNode = component.nodes?.root;
+                        if (rootNode) {
+                            const nodeLookup = getNodeAndAncestors(component, rootNode, styleVariantSelection.nodeId);
+                            if ((nodeLookup?.node.type === 'element' ||
+                                nodeLookup?.node.type === 'component') &&
+                                nodeLookup.node.variants?.[styleVariantSelection.styleVariantIndex].pseudoElement) {
+                                pseudoElement = `::${nodeLookup.node.variants[styleVariantSelection.styleVariantIndex].pseudoElement}`;
+                            }
+                        }
+                    }
+                    // If theme property preview, then override happens at root level and with reasonable specificity.
+                    // Otherwise, force (!important) the style directly on the element.
+                    if (theme) {
+                        theme.value.propertyDefinitions = Object.fromEntries(Object.entries(theme.value.propertyDefinitions ?? {})
+                            .filter(([key]) => previewStyleStyles[key])
+                            .map(([key, val]) => [
+                            key,
+                            {
+                                ...val,
+                                values: {
+                                    ...val.values,
+                                    [theme.key]: previewStyleStyles[key],
+                                },
+                            },
+                        ]));
+                        const cssBlocks = [];
+                        if (theme.key === theme.value.default) {
+                            cssBlocks.push(renderThemeValues(`:host, :root`, getThemeEntries(theme.value, theme.key)));
+                        }
+                        if (theme.key === theme.value.defaultDark) {
+                            cssBlocks.push(renderThemeValues(`:host, :root`, getThemeEntries(theme.value, theme.key), '@media (prefers-color-scheme: dark)'));
+                        }
+                        if (theme.key === theme.value.defaultLight) {
+                            cssBlocks.push(renderThemeValues(`:host, :root`, getThemeEntries(theme.value, theme.key), '@media (prefers-color-scheme: light)'));
+                        }
+                        cssBlocks.push(renderThemeValues(`[${THEME_DATA_ATTRIBUTE}~="${theme.key}"]`, getThemeEntries(theme.value, theme.key)));
+                        styleElement.innerHTML = cssBlocks.join('\n');
+                    }
+                    else {
+                        const previewStyles = Object.entries(previewStyleStyles)
+                            .map(([key, value]) => `${key}: ${convertViewportUnitsToEmulatedViewportUnits(value)} !important;`)
+                            .join('\n');
+                        styleElement.innerHTML = `[data-id="${selectedNodeId}"]${pseudoElement}, [data-id="${selectedNodeId}"] ~ [data-id^="${selectedNodeId}("]${pseudoElement} {
+    ${previewStyles}
+    transition: none !important;
+  }`;
+                    }
+                    requestResizeCanvas(resizeCanvasOptions);
+                    syncOverlayRects();
+                });
+                break;
+            case 'preview_resources': {
+                const { resources } = message.data;
+                // Allow for temporarily adding preview resources (e.g. fonts).
+                const resourceElements = Array.from(document.head.querySelectorAll('[data-id="preview-resource"]'));
+                // Remove any resources that are no longer needed
+                resourceElements.forEach((el) => {
+                    if (resources.length === 0 ||
+                        !resources.some((res) => res.href === el.getAttribute('href'))) {
+                        el.remove();
+                    }
+                });
+                resources
+                    .filter((resource) => !resourceElements.some((el) => el.getAttribute('href') === resource.href))
+                    .forEach((resource) => {
+                    const resourceElement = document.createElement('link');
+                    resourceElement.setAttribute('data-id', 'preview-resource');
+                    resourceElement.rel = 'stylesheet';
+                    resourceElement.href = resource.href;
+                    document.head.appendChild(resourceElement);
+                    // Sync canvas after the resource has loaded (if not already loaded)
+                    if (!resourceElement.sheet) {
+                        resourceElement.addEventListener('load', () => {
+                            requestResizeCanvas(resizeCanvasOptions);
+                            syncOverlayRects();
+                        });
+                    }
+                });
+                requestResizeCanvas(resizeCanvasOptions);
+                syncOverlayRects();
+                break;
+            }
+            case 'preview_theme': {
+                const { theme } = message.data;
+                themeSignal.set(theme);
+                const shouldDelete = theme === null || theme === '';
+                await cookieStore.set({
+                    name: THEME_COOKIE_NAME,
+                    value: theme ?? '',
+                    path: '/',
+                    expires: shouldDelete ? 0 : Date.now() + 1000 * 60 * 60 * 24, // 1 day
+                    sameSite: 'none',
+                });
+                requestResizeCanvas(resizeCanvasOptions);
+                break;
+            }
+            case 'capture_screenshot': {
+                const { id, viewportWidth } = message.data;
+                let disableTransitionsStyle = null;
+                // Set only if we actually ask the editor to resize, so we can ask
+                // it to put the width back afterwards - we can't rely on the
+                // editor's own restore logic getting this right.
+                let widthToRestore = null;
+                try {
+                    if (viewportWidth !== undefined) {
+                        if (window.innerWidth !== viewportWidth) {
+                            // We can't resize our own <iframe> element from in here - the
+                            // preview iframe is cross-origin/sandboxed from the editor, so
+                            // `window.frameElement` isn't accessible. Ask the editor to
+                            // resize the actual iframe instead, then wait for the
+                            // resulting native `resize` event rather than requiring an
+                            // explicit reply.
+                            widthToRestore = window.innerWidth;
+                            postMessageToEditor({
+                                type: 'requestViewportWidth',
+                                width: viewportWidth,
+                            });
+                            await waitForViewportWidth(viewportWidth);
+                        }
+                        // The editor's resize may have triggered CSS transitions on
+                        // responsive layout changes; disable them so we capture the
+                        // resting state at this width rather than a half-finished
+                        // transition frame.
+                        disableTransitionsStyle = document.createElement('style');
+                        disableTransitionsStyle.textContent =
+                            '*, *::before, *::after { transition: none !important; animation: none !important; }';
+                        document.head.appendChild(disableTransitionsStyle);
+                        // Let layout settle at the new width before capturing -
+                        // getComputedStyle (used internally by domToCanvas) forces a
+                        // synchronous layout flush, but a frame gives any resize-driven
+                        // JS (ResizeObserver, matchMedia listeners, etc.) a chance to run.
+                        await new Promise(requestAnimationFrame);
+                    }
+                    // Rasterize the full document (not just what's currently scrolled into
+                    // view) by walking the DOM/computed styles rather than capturing the
+                    // screen, so content below the fold is still included.
+                    const target = document.documentElement;
+                    const canvas = await domToCanvas(target, {
+                        width: target.scrollWidth,
+                        height: target.scrollHeight,
+                    });
+                    const url = canvas.toDataURL('image/png');
+                    postMessageToEditor({
+                        type: 'screenshot',
+                        id,
+                        file: {
+                            type: 'image/png',
+                            size: url.length,
+                            dimensions: { width: canvas.width, height: canvas.height },
+                            url,
+                        },
+                    });
+                }
+                catch (error) {
+                    postMessageToEditor({
+                        type: 'screenshot',
+                        id,
+                        file: null,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
+                finally {
+                    disableTransitionsStyle?.remove();
+                    if (widthToRestore !== null) {
+                        postMessageToEditor({
+                            type: 'requestViewportWidth',
+                            width: widthToRestore,
+                        });
+                        try {
+                            await waitForViewportWidth(widthToRestore);
+                        }
+                        catch (error) {
+                            console.error('Failed to restore original viewport width', error);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    });
+    const resizeObserver = new ResizeObserver(() => {
+        requestResizeCanvas(resizeCanvasOptions);
+        syncOverlayRects();
+    });
+    resizeObserver.observe(domNode);
+    requestResizeCanvas(resizeCanvasOptions);
+    window.addEventListener('beforeunload', () => {
+        storeScrollState(component?.name);
+        resizeObserver.disconnect();
+    });
+    const updateStyle = (component) => {
+        if (component) {
+            insertStyles(document.head, component, getAllComponents());
+        }
+    };
+    /**
+     * Get the current representation of the component, but with
+     * updated conditions based on selectedNodeId and updated
+     * styling based on styleVariantSelection
+     */
+    const getCurrentComponent = () => {
+        const _component = structuredClone(component);
+        if (!_component) {
+            return null;
+        }
+        if (mode === 'design') {
+            if (selectedNodeId !== null) {
+                const root = _component?.nodes?.root;
+                if (root) {
+                    const nodeLookup = getNodeAndAncestors(_component, root, selectedNodeId);
+                    if (nodeLookup) {
+                        if (isNodeOrAncestorConditional(nodeLookup)) {
+                            // Show the selected node and all its ancestors by
+                            // removing their "show" condition
+                            nodeLookup.node.condition = undefined;
+                            nodeLookup.ancestors.forEach((a) => (a.condition = undefined));
+                        }
+                    }
+                }
+            }
+        }
+        return _component;
+    };
+    const updateSelectedStyleVariant = (variantIndex) => {
+        clearSelectedStyleVariant();
+        if (selectedNodeId !== null && typeof variantIndex === 'number') {
+            styleVariantSelection = {
+                nodeId: selectedNodeId,
+                styleVariantIndex: variantIndex,
+            };
+            const root = component?.nodes?.root;
+            if (root && component) {
+                const nodeLookup = getNodeAndAncestors(component, root, selectedNodeId);
+                if (nodeLookup) {
+                    if (styleVariantSelection?.nodeId === selectedNodeId &&
+                        (nodeLookup.node.type === 'element' ||
+                            nodeLookup.node.type === 'component')) {
+                        const selectedStyleVariant = nodeLookup.node.variants?.[styleVariantSelection.styleVariantIndex] ?? { style: {} };
+                        // Add a style element specific to the selected element which
+                        // is only applied when the preview is in design mode
+                        const styleVariantCustomProperties = Object.fromEntries(Object.entries(selectedStyleVariant.customProperties ?? {})
+                            .map(([customPropertyName, customProperty]) => [
+                            customPropertyName,
+                            appendUnit(applyFormula(customProperty.formula, {
+                                data: dataSignal.get(),
+                                component: getCurrentComponent(),
+                                root: ctx?.root,
+                                formulaCache: {},
+                                package: ctx?.package,
+                                toddle: window.toddle,
+                                env,
+                                // TODO: Ensure we have the node id here
+                                jsonPath: [
+                                    'nodes',
+                                    '<random id>',
+                                    'variants',
+                                    styleVariantSelection?.styleVariantIndex ?? 0,
+                                    customPropertyName,
+                                ],
+                                reportFormulaEvaluation,
+                            }, []), customProperty.unit),
+                        ])
+                            .filter(([, value]) => isDefined(value)));
+                        const styleElem = document.createElement('style');
+                        const pseudoElement = selectedStyleVariant.pseudoElement
+                            ? `::${selectedStyleVariant.pseudoElement}`
+                            : '';
+                        styleElem.setAttribute('data-hash', selectedNodeId);
+                        styleElem.appendChild(document.createTextNode(`
+                        body[data-mode="design"] [data-id="${selectedNodeId}"]${pseudoElement} {
+                          ${styleToCss({
+                            ...(!pseudoElement && nodeLookup.node.style),
+                            ...selectedStyleVariant.style,
+                            ...styleVariantCustomProperties,
+                        })}
+                        }
+                      `));
+                        const existingStyleElement = document.head.querySelector(`[data-hash="${selectedNodeId}"]`);
+                        if (existingStyleElement) {
+                            document.head.removeChild(existingStyleElement);
+                        }
+                        document.head.appendChild(styleElem);
+                    }
+                }
+            }
+        }
+    };
+    const update = ({ forceRerender } = {}) => {
+        const _component = getCurrentComponent();
+        if (!_component || !components || !packageComponents) {
+            return;
+        }
+        const scrollStateRestorer = storeScrollState();
+        let { Attributes, Variables, Contexts } = dataSignal.get();
+        if (fastDeepEqual(ctx?.component.attributes, _component.attributes) === false) {
+            Attributes = mapObject(filterObject(_component.attributes ?? {}, ([_, attr]) => isDefined(attr)), ([name, { testValue }]) => [name, testValue]);
+        }
+        if (_component.route &&
+            fastDeepEqual(ctx?.component.route, _component.route) === false) {
+            // Subscribe to the route signal so we can preview URL parameter changes in the editor
+            routeSignal?.destroy();
+            if (_component.route) {
+                // Populate initial URL parameters with test data
+                window.toddle.locationSignal.update((location) => {
+                    if (!_component.route)
+                        return location;
+                    return {
+                        ...location,
+                        route: _component.route,
+                        params: Object.fromEntries(_component.route.path
+                            .filter((p) => p.type === 'param')
+                            .map((p) => [p.name, p.testValue])),
+                        query: mapObject(_component.route.query, ([name, { testValue }]) => [
+                            name,
+                            testValue,
+                        ]),
+                    };
+                });
+                routeSignal = window.toddle.locationSignal.map(({ query, params }) => {
+                    return { ...query, ...params };
+                });
+                routeSignal.subscribe((route) => dataSignal.update((data) => ({
+                    ...data,
+                    'URL parameters': route,
+                    Attributes: route,
+                })));
+            }
+            Attributes = mapObject(filterObject(_component.attributes ?? {}, ([_, attr]) => isDefined(attr)), ([name, { testValue }]) => [name, testValue]);
+        }
+        if (fastDeepEqual(ctx?.component.route?.info?.meta, _component.route?.info?.meta) === false ||
+            !ctx) {
+            insertHeadTags(_component.route?.info?.meta ?? {}, {
+                component: _component,
+                data: { Attributes },
+                root: document,
+                package: ctx?.package,
+                toddle: window.toddle,
+                env,
+                jsonPath: ['route', 'info', 'meta'],
+                reportFormulaEvaluation,
+            });
+        }
+        if (fastDeepEqual(_component.contexts, ctx?.component.contexts) === false) {
+            Contexts = (function createStaticContextFromComponent(component, contextProvidersCreated) {
+                contextProvidersCreated?.add(component.name);
+                return mapObject(component.contexts ?? {}, ([providerName, context]) => {
+                    if (contextProvidersCreated?.has(providerName)) {
+                        // Circular dependency detected in context-providers (ie. A -> B -> A -> ...), stop recursion
+                        return [providerName, {}];
+                    }
+                    const providerComponent = getAllComponents().find((c) => c.name === providerName);
+                    if (!providerComponent) {
+                        console.warn(`Could not find a provider-component named "${providerName}" in files`);
+                        return [providerName, {}];
+                    }
+                    // TODO: Should we also run APIs for the provider?
+                    const formulaContext = {
+                        data: {
+                            Attributes: mapObject(filterObject(providerComponent.attributes ?? {}, ([_, attr]) => isDefined(attr)), ([name, { testValue }]) => [name, testValue]),
+                            // Recursively resolve contexts providers before their children to build up the fake context tree in preview mode
+                            Contexts: createStaticContextFromComponent(providerComponent, contextProvidersCreated ?? new Set()),
+                        },
+                        component: providerComponent,
+                        root: ctx?.root,
+                        formulaCache: {},
+                        package: ctx?.package,
+                        toddle: window.toddle,
+                        env,
+                        jsonPath: [],
+                        // We don't evaluate formulas in context providers in preview mode currently
+                        reportFormulaEvaluation: undefined,
+                    };
+                    // Pages can also be context-providers!
+                    // Exposed formulas can derive their preview output from URL data,
+                    // so we must populate Url parameters with their test data
+                    if (providerComponent.route) {
+                        formulaContext.data['URL parameters'] = {
+                            ...Object.fromEntries(providerComponent.route.path
+                                .filter((p) => p.type === 'param')
+                                .map((p) => [p.name, p.testValue])),
+                            ...mapObject(providerComponent.route.query, ([name, { testValue }]) => [name, testValue]),
+                        };
+                    }
+                    formulaContext.data.Variables = mapObject(filterObject(providerComponent.variables ?? {}, ([_, variable]) => isDefined(variable)), ([name, variable]) => [
+                        name,
+                        applyFormula(variable.initialValue, formulaContext, [
+                            'variables',
+                            name,
+                        ]),
+                    ]);
+                    return [
+                        providerName,
+                        Object.fromEntries(context.formulas.map((formulaName) => {
+                            const formula = providerComponent.formulas?.[formulaName];
+                            if (!formula) {
+                                console.warn(`Could not find formula "${formulaName}" in component "${providerName}"`);
+                                return [formulaName, null];
+                            }
+                            return [
+                                formulaName,
+                                applyFormula(formula.formula, formulaContext, [
+                                    'formulas',
+                                    formulaName,
+                                ]),
+                            ];
+                        })),
+                    ];
+                });
+            })(_component);
+        }
+        if (fastDeepEqual(_component.variables, ctx?.component.variables) === false) {
+            Variables = mapObject(filterObject(_component.variables ?? {}, ([_, variable]) => isDefined(variable)), ([name, { initialValue }]) => [
+                name,
+                applyFormula(initialValue, {
+                    data: { Attributes, Contexts },
+                    component: _component,
+                    root: document,
+                    package: ctx?.package,
+                    toddle: window.toddle,
+                    env,
+                    jsonPath: ctx?.jsonPath,
+                    reportFormulaEvaluation,
+                }, ['variables', name]),
+            ]);
+        }
+        dataSignal.update((data) => {
+            return {
+                ...data,
+                'URL parameters': component && isPageComponent(component)
+                    ? {
+                        ...window.toddle.locationSignal.get().query,
+                        ...window.toddle.locationSignal.get().params,
+                    }
+                    : {},
+                Attributes,
+                Variables,
+                Contexts,
+            };
+        });
+        const defaultCtx = forceRerender || !ctx
+            ? // If we are forcing a rerender, we need to create a new context with the new component and all components
+                // Otherwise, we might be using outdated context provider data signals etc.
+                createContext(_component, getAllComponents())
+            : ctx;
+        const newCtx = {
+            ...defaultCtx,
+            component: _component,
+        };
+        if (fastDeepEqual(newCtx.component.route?.info?.theme, ctx?.component.route?.info?.theme) === false) {
+            setupThemeSubscription(newCtx.component, dataSignal, env).subscribe((theme) => {
+                newCtx.stores.theme.set(theme);
+            });
+        }
+        for (const api in newCtx.component.apis) {
+            // check if the api has changed (ignoring onCompleted and onFailed).
+            const apiInstance = newCtx.component.apis[api];
+            if (!apiInstance) {
+                continue;
+            }
+            const previousApiInstance = ctx?.component.apis?.[api];
+            if (isLegacyApi(apiInstance)) {
+                if (fastDeepEqual(omitKeys(apiInstance, ['onCompleted', 'onFailed']), previousApiInstance && isLegacyApi(previousApiInstance)
+                    ? omitKeys(previousApiInstance, ['onCompleted', 'onFailed'])
+                    : (previousApiInstance ?? {})) === false) {
+                    newCtx.apis[api]?.destroy();
+                    dataSignal.update((data) => {
+                        return {
+                            ...data,
+                            Apis: omitKeys(data.Apis ?? {}, [
+                                ...Object.keys(data.Apis ?? {}).filter(
+                                // remove any data from an api that is not part of the component
+                                (key) => !newCtx.component.apis?.[key]),
+                                api,
+                            ]),
+                        };
+                    });
+                    newCtx.apis[api] = createLegacyAPI(apiInstance, {
+                        ...newCtx,
+                        jsonPath: ['apis', api],
+                    });
+                }
+            }
+            else {
+                const existingApi = newCtx.apis[api];
+                if (!existingApi) {
+                    newCtx.apis[api] = createAPI({
+                        apiRequest: apiInstance,
+                        ctx: { ...newCtx, jsonPath: ['apis', api] },
+                        componentData: dataSignal.get(),
+                    });
+                }
+                else {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                    existingApi?.update(apiInstance, dataSignal.get());
+                }
+            }
+        }
+        if (forceRerender ||
+            fastDeepEqual(newCtx.component.nodes, ctx?.component?.nodes) === false ||
+            fastDeepEqual(newCtx.component.formulas, ctx?.component?.formulas) ===
+                false) {
+            updateStyle(newCtx.component);
+            // Remove preview styles automatically when the component changes
+            document.head.querySelector('[data-id="selected-node-styles"]')?.remove();
+            Array.from(domNode.children).forEach((child) => {
+                if (child.tagName !== 'SCRIPT') {
+                    child.remove();
+                }
+            });
+            // Clear old root signal and create a new one to not keep old signals with previous root around
+            ctxDataSignal?.destroy();
+            ctxDataSignal = dataSignal.map((data) => data);
+            ctxDataSignal.subscribe(() => {
+                requestResizeCanvas(resizeCanvasOptions);
+                syncOverlayRects();
+            });
+            try {
+                const rootElem = createNode({
+                    id: 'root',
+                    path: '0',
+                    dataSignal: ctxDataSignal,
+                    ctx: { ...newCtx, jsonPath: ['nodes', 'root'] },
+                    parentElement: domNode,
+                    instance: { [newCtx.component.name]: 'root' },
+                });
+                newCtx.component.onLoad?.actions?.forEach((action) => {
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                    handleAction(action, dataSignal.get(), newCtx);
+                });
+                rootElem.forEach((elem) => domNode.appendChild(elem));
+            }
+            catch (error) {
+                const isPage = isPageComponent(newCtx.component);
+                let name = `Unexpected error while rendering ${isPage ? 'page' : 'component'}`;
+                let message = error instanceof Error ? error.message : String(error);
+                let panic = false;
+                if (error instanceof RangeError) {
+                    // RangeError is unrecoverable
+                    panic = true;
+                    name = 'Infinite loop detected';
+                    message =
+                        'RangeError (Maximum call stack size exceeded): Remove any circular dependencies or recursive calls (Try undoing your last change). This is most likely caused by a component, formula or action using itself.';
+                }
+                // This can be triggered by setting "type" on a select etc.
+                if (error instanceof TypeError) {
+                    panic = true;
+                    name = 'TypeError';
+                    message = `Type errors are often caused by:
+
+• Trying to set a read-only property (like "type" on a select element).
+
+• Trying to set a property on an undefined or null value.
+
+• Trying to access a property on an undefined or null value.
+
+• Trying to call a method on an undefined or null value.`;
+                }
+                console.error(name, message, error);
+                if (panic) {
+                    // Show error overlay in the editor until next update
+                    const panicScreen = createPanicScreen({
+                        name: name,
+                        message,
+                        isPage,
+                        cause: error,
+                    });
+                    // Replace the inner HTML of the editor preview with the panic screen
+                    domNode.innerHTML = '';
+                    domNode.appendChild(panicScreen);
+                }
+                else {
+                    // Otherwise send a toast to the editor with the error (unknown errors may be recoverable), if not please add the error-type to the above
+                    sendEditorToast(name, message, {
+                        type: 'critical',
+                    });
+                }
+            }
+            postMessageToEditor({
+                type: 'style',
+                time: new Intl.DateTimeFormat('en-GB', {
+                    timeStyle: 'long',
+                }).format(new Date()),
+            });
+        }
+        ctx = newCtx;
+        scrollStateRestorer((nodeId) => document.querySelector(`[data-id="${nodeId}"]`));
+        markSelectedElement(getDOMNodeFromNodeId(selectedNodeId));
+        requestResizeCanvas(resizeCanvasOptions);
+        syncOverlayRects();
+    };
+    const createContext = (component, components) => {
+        const ctx = {
+            component,
+            components,
+            triggerEvent: (event, data) => {
+                postMessageToEditor({
+                    type: 'component event',
+                    event,
+                    time: new Intl.DateTimeFormat('en-GB', {
+                        timeStyle: 'long',
+                    }).format(new Date()),
+                    data,
+                });
+            },
+            dataSignal,
+            root: document,
+            isRootComponent: true,
+            apis: {},
+            children: {},
+            abortSignal: new AbortController().signal,
+            formulaCache: createFormulaCache(component),
+            providers: {},
+            stores: {
+                theme: themeSignal,
+            },
+            package: undefined,
+            toddle: window.toddle,
+            env,
+            jsonPath: [], // TODO: decide if the component path is needed here
+            reportFormulaEvaluation,
+        };
+        setupThemeSubscription(ctx.component, ctx.dataSignal, env).subscribe((theme) => {
+            ctx.stores.theme.set(theme);
+        });
+        if (isContextProvider(component)) {
+            // Subscribe to exposed formulas and update the component's data signal
+            const formulaDataSignals = Object.fromEntries(Object.entries(component.formulas ?? {})
+                .filter(([, formula]) => formula?.exposeInContext)
+                .map(([name, formula]) => [
+                name,
+                dataSignal.map((data) => applyFormula(formula.formula, {
+                    data,
+                    component,
+                    formulaCache: ctx.formulaCache,
+                    root: ctx.root,
+                    package: ctx.package,
+                    toddle: window.toddle,
+                    env,
+                    jsonPath: ctx.jsonPath,
+                    reportFormulaEvaluation,
+                }, ['formulas', name])),
+            ]));
+            ctx.providers = {
+                ...ctx.providers,
+                [component.name]: {
+                    component,
+                    formulaDataSignals,
+                    ctx,
+                },
+            };
+        }
+        return ctx;
+    };
+    initKeyListeners();
+    const clearSelectedStyleVariant = () => {
+        if (styleVariantSelection) {
+            const styleElem = document.head.querySelector(`[data-hash="${styleVariantSelection.nodeId}"]`);
+            if (styleElem) {
+                document.head.removeChild(styleElem);
+            }
+            styleVariantSelection = null;
+        }
+    };
+    const updateConditionalElements = () => {
+        const displayedNodes = [];
+        if (selectedNodeId && component) {
+            const root = component.nodes?.root;
+            if (root) {
+                const nodeLookup = getNodeAndAncestors(component, root, selectedNodeId);
+                if (isNodeOrAncestorConditional(nodeLookup)) {
+                    displayedNodes.push(selectedNodeId);
+                    displayedNodes.push(...[...nodeLookup.ancestors, nodeLookup.node]
+                        .filter((a) => a.condition)
+                        .map((a) => a.nodeId));
+                }
+            }
+        }
+        showSignal.set({
+            displayedNodes,
+            testMode: mode === 'test',
+        });
+    };
+    let prevSelectionRect;
+    let prevHighlightRect;
+    /**
+     * Sync the overlay positions with the editor.
+     * This is called on each frame to account for animations and other changes.
+     */
+    const syncOverlayRects = () => {
+        const selectionRect = getRectData(getDOMNodeFromNodeId(selectedNodeId));
+        const highlightRect = getRectData(getDOMNodeFromNodeId(highlightedNodeId));
+        const selectionChanged = !fastDeepEqual(prevSelectionRect, selectionRect);
+        const highlightChanged = !fastDeepEqual(prevHighlightRect, highlightRect);
+        if (selectionChanged || highlightChanged) {
+            prevSelectionRect = selectionRect;
+            prevHighlightRect = highlightRect;
+            if (selectionChanged) {
+                postMessageToEditor({
+                    type: 'selectionRect',
+                    rect: selectionRect,
+                });
+            }
+            if (highlightChanged) {
+                postMessageToEditor({
+                    type: 'highlightRect',
+                    rect: highlightRect,
+                });
+            }
+        }
+    };
+};
+const insertOrReplaceHeadNode = (id, node) => {
+    const existing = document.head.querySelector(`[data-meta-id="${id}"]`);
+    if (existing) {
+        existing.replaceWith(node);
+    }
+    else {
+        document.head.appendChild(node);
+    }
+};
+const insertHeadTags = (entries, context) => {
+    // Remove all tags that has a data-meta-id attribute that is not in the entries
+    Array.from(document.head.querySelectorAll('[data-meta-id]'))
+        .filter((elem) => !entries[elem.getAttribute('data-meta-id')])
+        .forEach((elem) => elem.remove());
+    // Skip anything that is not <link>, <style> or <script> tags, as they don't have any influence on the preview
+    Object.entries(entries).forEach(([id, entry]) => {
+        switch (entry.tag) {
+            case HeadTagTypes.Link:
+                return insertOrReplaceHeadNode(id, document.createRange().createContextualFragment(`
+          <link
+            data-meta-id="${id}"
+            ${Object.entries(entry.attrs ?? {})
+                    .map(([key, value]) => `${key}="${applyFormula(value, context, [id, 'attrs', key])}"`)
+                    .join(' ')}
+          />
+        `));
+            case HeadTagTypes.Script:
+                return insertOrReplaceHeadNode(id, document.createRange().createContextualFragment(`
+          <script
+            data-meta-id="${id}"
+            ${Object.entries(entry.attrs ?? {})
+                    .map(([key, value]) => `${key}="${applyFormula(value, context, [id, 'attrs', key])}"`)
+                    .join(' ')}
+          >${applyFormula(entry.content ?? '', context)}</script>
+        `));
+            case HeadTagTypes.Style:
+                return insertOrReplaceHeadNode(id, document.createRange().createContextualFragment(`
+          <style
+            data-meta-id="${id}"
+            ${Object.entries(entry.attrs ?? {})
+                    .map(([key, value]) => `${key}="${applyFormula(value, context)}"`)
+                    .join(' ')}
+          >
+            ${applyFormula(entry.content ?? '', context)}
+          </style>
+        `));
+            default:
+                return;
+        }
+    });
+};
+export function getDOMNodeFromNodeId(selectedNodeId) {
+    if (!selectedNodeId) {
+        return null;
+    }
+    return document.querySelector(`[data-id="${stripNodeIdRepeatIndices(selectedNodeId)}"]:not([data-component])`);
+}
+function getNodeId(component, path) {
+    function getId([nextChild, ...path], currentId) {
+        if (nextChild === undefined || currentId === undefined) {
+            return currentId ?? null;
+        }
+        const currentNode = component.nodes?.[currentId];
+        if (!currentNode?.children) {
+            return null;
+        }
+        return getId(path, currentNode.children[parseInt(nextChild)]);
+    }
+    return getId(path, 'root');
+}
+const insertTheme = (parent, themes) => {
+    document.getElementById('theme-style')?.remove();
+    const styleElem = document.createElement('style');
+    styleElem.setAttribute('type', 'text/css');
+    styleElem.setAttribute('id', 'theme-style');
+    styleElem.innerHTML = getThemeCss(themes, {
+        includeResetStyle: false,
+        createFontFaces: true,
+    });
+    parent.appendChild(styleElem);
+};
+const initKeyListeners = () => {
+    document.addEventListener('keydown', (event) => {
+        if (isInputTarget(event)) {
+            return;
+        }
+        switch (event.key) {
+            case 'k':
+                if (event.metaKey) {
+                    event.preventDefault();
+                }
+        }
+        postMessageToEditor({
+            type: 'keydown',
+            event: {
+                key: event.key,
+                metaKey: event.metaKey,
+                shiftKey: event.shiftKey,
+                altKey: event.altKey,
+            },
+        });
+    });
+    document.addEventListener('keyup', (event) => {
+        if (isInputTarget(event)) {
+            return;
+        }
+        postMessageToEditor({
+            type: 'keyup',
+            event: {
+                key: event.key,
+                metaKey: event.metaKey,
+                shiftKey: event.shiftKey,
+                altKey: event.altKey,
+            },
+        });
+    });
+    document.addEventListener('keypress', (event) => {
+        if (isInputTarget(event)) {
+            return;
+        }
+        postMessageToEditor({
+            type: 'keypress',
+            event: {
+                key: event.key,
+                metaKey: event.metaKey,
+                shiftKey: event.shiftKey,
+                altKey: event.altKey,
+            },
+        });
+    });
+};
+const registerActions = (allActions, packageName) => {
+    const actions = {};
+    Object.entries(allActions ?? {}).forEach(([name, action]) => {
+        if (isLegacyPluginAction(action)) {
+            // Legacy actions are self-registering. We need to execute them to register them
+            Function(action.handler)();
+            return;
+        }
+        // We need to convert the handler string into a real function
+        actions[name] = {
+            ...action,
+            handler: typeof action.handler === 'string'
+                ? new Function('args, ctx', `${action.handler}
+          return ${safeFunctionName(action.name)}(args, ctx)`)
+                : action.handler,
+        };
+    });
+    window.toddle.actions[packageName ?? window.__toddle.project] = actions;
+};
+const registerFormulas = (allFormulas, packageName) => {
+    const formulas = {};
+    Object.entries(allFormulas ?? {}).forEach(([name, formula]) => {
+        if (!isToddleFormula(formula) &&
+            typeof formula.name === 'string' &&
+            formula.version === undefined) {
+            // Legacy formulas are self-registering. We need to execute them to register them
+            Function(formula.handler)();
+            return;
+        }
+        else if (!isToddleFormula(formula)) {
+            // For code formulas we need to convert the handler string into a real function
+            formulas[name] = {
+                ...formula,
+                handler: typeof formula.handler === 'string'
+                    ? new Function('args, ctx', `${formula.handler}
+                return ${safeFunctionName(formula.name)}(args, ctx)`)
+                    : formula.handler,
+            };
+            return;
+        }
+        formulas[name] = formula;
+    });
+    window.toddle.formulas[packageName ?? window.__toddle.project] = formulas;
+};
+let _themeRootSignal = null;
+function setupThemeSubscription(component, dataSignal, env) {
+    _themeRootSignal?.destroy();
+    _themeRootSignal = getThemeSignal(component, dataSignal, env);
+    return _themeRootSignal;
+}
+//# sourceMappingURL=editor-preview.main.js.map

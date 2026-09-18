@@ -1,0 +1,316 @@
+import { isDefined } from '../utils/util';
+import { isFormula, isToddleFormula } from './formula';
+export const valueFormula = (value) => ({
+    type: 'value',
+    value,
+});
+export const pathFormula = (path) => ({
+    type: 'path',
+    path,
+});
+export const functionFormula = (name, formula) => ({
+    type: 'function',
+    name,
+    package: formula?.package,
+    arguments: formula?.arguments ?? [],
+    variableArguments: formula?.variableArguments,
+});
+export function* getFormulasInFormula({ formula, globalFormulas, path: _path, visitedFormulas: _visitedFormulas, packageName, }) {
+    if (!isDefined(formula)) {
+        return;
+    }
+    const path = _path ?? [];
+    const visitedFormulas = _visitedFormulas ?? new Set();
+    yield {
+        path,
+        formula,
+        packageName: packageName ?? undefined,
+    };
+    switch (formula.type) {
+        case 'path':
+        case 'value':
+            break;
+        case 'record':
+            for (const [key, entry] of (formula.entries ?? []).entries()) {
+                yield* getFormulasInFormula({
+                    formula: entry.formula,
+                    globalFormulas,
+                    path: [...path, 'entries', key, 'formula'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            break;
+        case 'function': {
+            const innerPackage = formula.package ?? packageName;
+            const formulaKey = [innerPackage, formula.name]
+                .filter(isDefined)
+                .join('/');
+            const shouldVisitFormula = !visitedFormulas.has(formulaKey);
+            visitedFormulas.add(formulaKey);
+            const globalFormula = innerPackage
+                ? globalFormulas.packages?.[innerPackage]?.formulas?.[formula.name]
+                : globalFormulas.formulas?.[formula.name];
+            for (const [key, arg] of (formula.arguments ?? []).entries()) {
+                yield* getFormulasInFormula({
+                    formula: arg.formula,
+                    globalFormulas,
+                    path: [...path, 'arguments', key, 'formula'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            // Lookup the actual function and traverse its potential formula references
+            // if this formula wasn't already visited
+            if (globalFormula &&
+                isToddleFormula(globalFormula) &&
+                shouldVisitFormula) {
+                yield* getFormulasInFormula({
+                    formula: globalFormula.formula,
+                    globalFormulas,
+                    path: innerPackage
+                        ? ['packages', innerPackage, 'formulas', formula.name]
+                        : ['formulas', formula.name],
+                    visitedFormulas,
+                    packageName: innerPackage,
+                });
+            }
+            break;
+        }
+        case 'array':
+        case 'or':
+        case 'and':
+        case 'object':
+            for (const [key, arg] of (formula.arguments ?? []).entries()) {
+                yield* getFormulasInFormula({
+                    formula: arg.formula,
+                    globalFormulas,
+                    path: [...path, 'arguments', key, 'formula'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            break;
+        case 'apply':
+            for (const [key, arg] of (formula.arguments ?? []).entries()) {
+                yield* getFormulasInFormula({
+                    formula: arg.formula,
+                    globalFormulas,
+                    path: [...path, 'arguments', key, 'formula'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            break;
+        case 'switch':
+            for (const [key, c] of formula.cases?.entries() ?? []) {
+                yield* getFormulasInFormula({
+                    formula: c.condition,
+                    globalFormulas,
+                    path: [...path, 'cases', key, 'condition'],
+                    visitedFormulas,
+                    packageName,
+                });
+                yield* getFormulasInFormula({
+                    formula: c.formula,
+                    globalFormulas,
+                    path: [...path, 'cases', key, 'formula'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            yield* getFormulasInFormula({
+                formula: formula.default,
+                globalFormulas,
+                path: [...path, 'default'],
+                visitedFormulas,
+                packageName,
+            });
+            break;
+    }
+}
+export function* getFormulasInAction({ action, globalFormulas, path: _path, visitedFormulas = new Set(), packageName, }) {
+    if (!isDefined(action)) {
+        return;
+    }
+    const path = _path ?? [];
+    switch (action.type) {
+        case 'AbortFetch':
+            // AbortFetch has no formulas
+            break;
+        case 'Fetch':
+            for (const [inputKey, input] of Object.entries(action.inputs ?? {})) {
+                yield* getFormulasInFormula({
+                    formula: input.formula,
+                    globalFormulas,
+                    path: [...path, 'input', inputKey, 'formula'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            for (const [key, a] of Object.entries(action.onSuccess?.actions ?? {})) {
+                yield* getFormulasInAction({
+                    action: a,
+                    globalFormulas,
+                    path: [...path, 'onSuccess', 'actions', key],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            for (const [key, a] of Object.entries(action.onError?.actions ?? {})) {
+                yield* getFormulasInAction({
+                    action: a,
+                    globalFormulas,
+                    path: [...path, 'onError', 'actions', key],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            for (const [key, a] of Object.entries(action.onMessage?.actions ?? {})) {
+                yield* getFormulasInAction({
+                    action: a,
+                    globalFormulas,
+                    path: [...path, 'onMessage', 'actions', key],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            break;
+        case 'Custom':
+        case undefined:
+        case null: {
+            if (isFormula(action.data)) {
+                yield* getFormulasInFormula({
+                    formula: action.data,
+                    globalFormulas,
+                    path: [...path, 'data'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            for (const [key, a] of Object.entries(action.arguments ?? {})) {
+                if (a) {
+                    yield* getFormulasInFormula({
+                        formula: a.formula,
+                        globalFormulas,
+                        path: [...path, 'arguments', key, 'formula'],
+                        visitedFormulas,
+                        packageName,
+                    });
+                }
+            }
+            for (const [eventKey, event] of Object.entries(action.events ?? {})) {
+                for (const [key, a] of Object.entries(event.actions ?? {})) {
+                    yield* getFormulasInAction({
+                        action: a,
+                        globalFormulas,
+                        path: [...path, 'events', eventKey, 'actions', key],
+                        visitedFormulas,
+                        packageName,
+                    });
+                }
+            }
+            break;
+        }
+        case 'SetVariable':
+        case 'TriggerEvent':
+        case 'TriggerWorkflowCallback':
+            yield* getFormulasInFormula({
+                formula: action.data,
+                globalFormulas,
+                path: [...path, 'data'],
+                visitedFormulas,
+                packageName,
+            });
+            break;
+        case 'SetURLParameter':
+            yield* getFormulasInFormula({
+                formula: action.data,
+                globalFormulas,
+                path: [...path, 'data'],
+                visitedFormulas,
+                packageName,
+            });
+            break;
+        case 'SetURLParameters':
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            for (const [key, formula] of Object.entries(action.parameters ?? {})) {
+                yield* getFormulasInFormula({
+                    formula,
+                    globalFormulas,
+                    path: [...path, 'parameters', key],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            break;
+        case 'TriggerWorkflow':
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            for (const [key, a] of Object.entries(action.parameters ?? {})) {
+                if (isDefined(a.formula)) {
+                    yield* getFormulasInFormula({
+                        formula: a.formula,
+                        globalFormulas,
+                        path: [...path, 'parameters', key, 'formula'],
+                        visitedFormulas,
+                        packageName,
+                    });
+                }
+            }
+            for (const [callbackKey, callback] of Object.entries(action.callbacks ?? {})) {
+                if (isDefined(callback?.actions)) {
+                    for (const [key, a] of Object.entries(callback.actions)) {
+                        if (isDefined(a)) {
+                            yield* getFormulasInAction({
+                                action: a,
+                                globalFormulas,
+                                path: [...path, 'callbacks', callbackKey, 'actions', key],
+                                visitedFormulas,
+                                packageName,
+                            });
+                        }
+                    }
+                }
+            }
+            break;
+        case 'Switch':
+            if (isDefined(action.data) && isFormula(action.data)) {
+                yield* getFormulasInFormula({
+                    formula: action.data,
+                    globalFormulas,
+                    path: [...path, 'data'],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            for (const [key, c] of (action.cases ?? []).entries()) {
+                yield* getFormulasInFormula({
+                    formula: c.condition,
+                    globalFormulas,
+                    path: [...path, 'cases', key, 'condition'],
+                    visitedFormulas,
+                    packageName,
+                });
+                for (const [actionKey, a] of Object.entries(c.actions)) {
+                    yield* getFormulasInAction({
+                        action: a,
+                        globalFormulas,
+                        path: [...path, 'cases', key, 'actions', actionKey],
+                        visitedFormulas,
+                        packageName,
+                    });
+                }
+            }
+            for (const [actionKey, a] of Object.entries(action.default?.actions ?? [])) {
+                yield* getFormulasInAction({
+                    action: a,
+                    globalFormulas,
+                    path: [...path, 'default', 'actions', actionKey],
+                    visitedFormulas,
+                    packageName,
+                });
+            }
+            break;
+    }
+}
+//# sourceMappingURL=formulaUtils.js.map

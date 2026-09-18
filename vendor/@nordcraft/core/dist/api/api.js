@@ -1,0 +1,298 @@
+import { applyFormula } from '../formula/formula';
+import { omitKeys, sortObjectEntries } from '../utils/collections';
+import { hash } from '../utils/hash';
+import { isDefined, isObject, toBoolean } from '../utils/util';
+import { ApiMethod } from './apiTypes';
+import { isJsonHeader } from './headers';
+export const NON_BODY_RESPONSE_CODES = [101, 204, 205, 304];
+export const isLegacyApi = (api) => !('version' in api);
+export const createApiRequest = ({ api, formulaContext, baseUrl, defaultHeaders, }) => {
+    const url = getUrl(api, { ...formulaContext, jsonPath: ['apis', api.name] }, baseUrl);
+    const requestSettings = getRequestSettings({
+        api,
+        formulaContext,
+        defaultHeaders,
+    });
+    return { url, requestSettings };
+};
+export const getUrl = (api, formulaContext, baseUrl) => {
+    let urlPathname = '';
+    let urlQueryParams = new URLSearchParams();
+    let parsedUrl;
+    const url = applyFormula(api.url, formulaContext, ['url']);
+    if (['string', 'number'].includes(typeof url)) {
+        const urlInput = typeof url === 'number' ? String(url) : url;
+        try {
+            // Try to parse the URL to extract potential path and query parameters
+            parsedUrl = new URL(urlInput, baseUrl ?? undefined);
+            urlPathname = parsedUrl.pathname;
+            urlQueryParams = parsedUrl.searchParams;
+            // eslint-disable-next-line no-empty
+        }
+        catch { }
+    }
+    const pathParams = getRequestPath(api.path, formulaContext);
+    // Combine potential path parameters from the url declaration with the actual path parameters
+    const path = `${urlPathname}${pathParams.length > 0 && !urlPathname.endsWith('/') ? '/' : ''}${pathParams}`;
+    // Combine potential query parameters from the url declaration with the actual query parameters
+    const queryParams = new URLSearchParams([
+        ...urlQueryParams,
+        ...getRequestQueryParams(api.queryParams, formulaContext),
+    ]);
+    const queryString = [...queryParams.entries()].length > 0 ? `?${queryParams.toString()}` : '';
+    const hash = applyFormula(api.hash?.formula, formulaContext, [
+        'hash',
+        'formula',
+    ]);
+    const hashString = typeof hash === 'string' && hash.length > 0 ? `#${hash}` : '';
+    if (parsedUrl) {
+        const combinedUrl = new URL(parsedUrl.origin, baseUrl ?? undefined);
+        combinedUrl.pathname = path;
+        combinedUrl.search = queryParams.toString();
+        combinedUrl.hash = hashString;
+        return combinedUrl;
+    }
+    else {
+        return new URL(`${path}${queryString}${hashString}`, baseUrl ?? undefined);
+    }
+};
+export const HttpMethodsWithAllowedBody = [
+    ApiMethod.POST,
+    ApiMethod.DELETE,
+    ApiMethod.PUT,
+    ApiMethod.PATCH,
+    ApiMethod.OPTIONS,
+];
+export const applyAbortSignal = (api, requestSettings, formulaContext) => {
+    if (api.timeout) {
+        const timeout = applyFormula(api.timeout.formula, formulaContext, [
+            'timeout',
+            'formula',
+        ]);
+        if (typeof timeout === 'number' && !Number.isNaN(timeout) && timeout > 0) {
+            requestSettings.signal = AbortSignal.timeout(timeout);
+        }
+    }
+};
+const getRequestSettings = ({ api, formulaContext, defaultHeaders, }) => {
+    const method = Object.values(ApiMethod).includes(api.method)
+        ? api.method
+        : ApiMethod.GET;
+    const headers = getRequestHeaders({
+        apiHeaders: api.headers,
+        formulaContext,
+        defaultHeaders,
+    });
+    const body = getRequestBody({ api, formulaContext, headers, method });
+    if (headers.get('content-type') === 'multipart/form-data') {
+        headers.delete('content-type');
+    }
+    const requestSettings = {
+        method,
+        headers,
+        body,
+    };
+    applyAbortSignal(api, requestSettings, formulaContext);
+    return requestSettings;
+};
+export const getRequestPath = (path, formulaContext) => sortObjectEntries(path ?? {}, ([_, p]) => p.index)
+    .map(([parameterName, p]) => applyFormula(p.formula, formulaContext, ['path', parameterName]))
+    .join('/');
+export const getRequestQueryParams = (params, formulaContext) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params ?? {}).forEach(([key, param]) => {
+        const enabled = isDefined(param.enabled)
+            ? applyFormula(param.enabled, formulaContext, [
+                'queryParams',
+                key,
+                'enabled',
+            ])
+            : true;
+        if (!enabled) {
+            return;
+        }
+        const value = applyFormula(param.formula, formulaContext, [
+            'queryParams',
+            key,
+            'formula',
+        ]);
+        if (!isDefined(value)) {
+            // Ignore null/undefined values
+            return;
+        }
+        if (Array.isArray(value)) {
+            // Support encoding 1-dimensional arrays
+            value.forEach((v) => queryParams.append(key, String(v)));
+        }
+        else if (isObject(value)) {
+            // Support encoding (nested) objects, but cast any non-object to a String
+            const encodeObject = (obj, prefix) => {
+                Object.entries(obj).forEach(([key, val]) => {
+                    if (!Array.isArray(val) && isObject(val)) {
+                        return encodeObject(val, `${prefix}[${key}]`);
+                    }
+                    else {
+                        queryParams.set(`${prefix}[${key}]`, String(val));
+                    }
+                });
+            };
+            encodeObject(value, key);
+        }
+        else {
+            queryParams.set(key, String(value));
+        }
+    });
+    return queryParams;
+};
+export const getRequestHeaders = ({ apiHeaders, formulaContext, defaultHeaders, }) => {
+    const headers = new Headers(defaultHeaders);
+    Object.entries(apiHeaders ?? {}).forEach(([key, param]) => {
+        const enabled = isDefined(param.enabled)
+            ? applyFormula(param.enabled, formulaContext, ['headers', key, 'enabled'])
+            : true;
+        if (enabled) {
+            const value = applyFormula(param.formula, formulaContext, [
+                'headers',
+                key,
+                'formula',
+            ]);
+            if (isDefined(value)) {
+                try {
+                    headers.set(key.trim(), (typeof value === 'string' ? value : String(value)).trim());
+                    // eslint-disable-next-line no-empty
+                }
+                catch { }
+            }
+        }
+    });
+    return headers;
+};
+export const getBaseUrl = ({ origin, url, }) => !isDefined(url) || url === '' || url.startsWith('/') ? origin + url : url;
+/**
+ * Calculate the hash of a Request object based on its properties
+ */
+export const requestHash = (url, request) => hash(JSON.stringify({
+    url: url.href,
+    method: request.method,
+    headers: omitKeys(Object.fromEntries(Object.entries(request.headers ?? {})), ['host', 'cookie']),
+    body: request.body ?? null,
+}));
+export const isApiError = ({ apiName, response, formulaContext, errorFormula, performance, }) => {
+    const errorFormulaRes = errorFormula
+        ? applyFormula(errorFormula.formula, {
+            component: formulaContext.component,
+            package: formulaContext.package,
+            toddle: formulaContext.toddle,
+            data: {
+                Attributes: {},
+                Args: formulaContext.data.Args,
+                Apis: {
+                    // The errorFormula will only have access to the data of the current API
+                    [apiName]: {
+                        isLoading: false,
+                        data: response.body,
+                        error: null,
+                        response: {
+                            status: response.status,
+                            headers: response.headers,
+                            performance,
+                        },
+                    },
+                },
+            },
+            env: formulaContext.env,
+            jsonPath: ['apis', apiName, 'isError', 'formula'],
+            reportFormulaEvaluation: formulaContext.reportFormulaEvaluation,
+        })
+        : null;
+    if (errorFormulaRes === null || errorFormulaRes === undefined) {
+        return !response.ok;
+    }
+    return toBoolean(errorFormulaRes);
+};
+export const getRequestBody = ({ api, formulaContext, headers, method, }) => {
+    if (!api.body || !HttpMethodsWithAllowedBody.includes(method)) {
+        return;
+    }
+    const body = applyFormula(api.body, formulaContext, ['body']);
+    if (!body) {
+        return;
+    }
+    const contentType = headers.get('content-type');
+    if (!isDefined(contentType) || isJsonHeader(contentType)) {
+        // JSON.stringify the body if the content type is JSON or has not been set
+        return JSON.stringify(body);
+    }
+    switch (contentType) {
+        case 'application/x-www-form-urlencoded': {
+            if (typeof body === 'object' && body !== null) {
+                return Object.entries(body)
+                    .map(([key, value]) => {
+                    if (Array.isArray(value)) {
+                        return value
+                            .map((v) => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`)
+                            .join('&');
+                    }
+                    else {
+                        return `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+                    }
+                })
+                    .join('&');
+            }
+            return '';
+        }
+        case 'multipart/form-data': {
+            if (typeof body === 'object' && body !== null) {
+                return toFormData(body);
+            }
+            else {
+                return new FormData();
+            }
+        }
+        case 'text/plain':
+            return String(body);
+        default:
+            // For other content types, we return the body as is
+            return body;
+    }
+};
+/**
+ * Converts a plain object to FormData, supporting nested objects and arrays.
+ */
+export const toFormData = (body) => {
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(body)) {
+        if (value === null || value === undefined) {
+            continue;
+        }
+        const values = Array.isArray(value) ? value : [value];
+        for (const v of values) {
+            if (v === null || v === undefined) {
+                continue;
+            }
+            if (v instanceof File) {
+                formData.append(key, v, v.name);
+            }
+            else if (v instanceof Blob) {
+                formData.append(key, v);
+            }
+            else if (['string', 'number', 'boolean'].includes(typeof v)) {
+                formData.append(key, String(v));
+            }
+            else if (typeof v === 'object') {
+                formData.append(key, JSON.stringify(v));
+            }
+            else {
+                // Unsupported value type
+                continue;
+            }
+        }
+    }
+    return formData;
+};
+export const createApiEvent = (eventName, detail) => {
+    return new CustomEvent(eventName, {
+        detail,
+    });
+};
+//# sourceMappingURL=api.js.map

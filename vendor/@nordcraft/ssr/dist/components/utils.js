@@ -1,0 +1,53 @@
+import { isDefined } from '@nordcraft/core/dist/utils/util';
+export function takeIncludedComponents({ root, projectComponents, packages = {}, includeRoot = true, }) {
+    const components = {
+        ...projectComponents,
+        // Join the project components with all package components
+        ...Object.fromEntries(Object.values(packages).flatMap((installedPackage) => installedPackage
+            ? Object.values(installedPackage.components).map((component) => [
+                `${installedPackage.manifest.name}/${component.name}`,
+                component,
+            ])
+            : [])),
+    };
+    const includedComponents = [];
+    if (includeRoot) {
+        includedComponents.push(root);
+    }
+    includedComponents.push(...takeComponentsIncludedInProject(root, components));
+    return includedComponents;
+}
+function takeComponentsIncludedInProject(parent, components) {
+    const dependencies = new Map();
+    const visitNode = (node, packageName) => {
+        if (node.type !== 'component') {
+            return;
+        }
+        const nodeName = [node.package ?? packageName, node.name]
+            .filter(isDefined)
+            .join('/');
+        if (dependencies.has(nodeName)) {
+            return;
+        }
+        const component = components[nodeName];
+        if (!isDefined(component)) {
+            return;
+        }
+        // Only add known/existing dependencies
+        if (Object.hasOwn(components, nodeName)) {
+            dependencies.set(nodeName, { ...component, name: nodeName });
+        }
+        Object.values(component.nodes ?? {}).forEach((node) => {
+            if (isDefined(node)) {
+                visitNode(node, (node.type === 'component' ? node.package : undefined) ?? packageName);
+            }
+        });
+    };
+    Object.values(parent.nodes ?? {}).forEach((node) => {
+        if (isDefined(node)) {
+            visitNode(node, node.type === 'component' ? node.package : undefined);
+        }
+    });
+    return Array.from(dependencies.values());
+}
+//# sourceMappingURL=utils.js.map

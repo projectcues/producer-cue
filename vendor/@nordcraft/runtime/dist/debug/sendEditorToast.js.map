@@ -1,0 +1,1 @@
+{"version":3,"file":"sendEditorToast.js","sourceRoot":"","sources":["../../src/debug/sendEditorToast.ts"],"names":[],"mappings":"AAAA,MAAM,UAAU,eAAe,CAC7B,KAAa,EACb,OAAe,EACf,EACE,IAAI,GAAG,SAAS,GAGjB;IAED,MAAM,CAAC,MAAM,EAAE,WAAW,CACxB;QACE,IAAI,EAAE,WAAW;QACjB,SAAS,EAAE,IAAI;QACf,KAAK;QACL,OAAO;KACR,EACD,GAAG,CACJ,CAAA;AACH,CAAC"}

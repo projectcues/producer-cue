@@ -1,0 +1,513 @@
+import { ToddleComponent } from '@nordcraft/core/dist/component/ToddleComponent';
+import { applyFormula } from '@nordcraft/core/dist/formula/formula';
+import { getClassName, getPathClassName, getStaticStyleAndVariants, toValidClassName, } from '@nordcraft/core/dist/styling/className';
+import { appendUnit } from '@nordcraft/core/dist/styling/customProperty';
+import { filterObject, mapValues } from '@nordcraft/core/dist/utils/collections';
+import { getNodeSelector } from '@nordcraft/core/dist/utils/getNodeSelector';
+import { VOID_HTML_ELEMENTS } from '@nordcraft/core/dist/utils/html';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
+import { escapeAttrValue } from 'xss';
+import { getNodeAttrs, toEncodedText } from './attributes';
+const renderComponent = async ({ path, apiCache, children, component, data, env, evaluateComponentApis, files, toddle, includedComponents, instance, packageName, projectId, req, updateApiCache, addCustomProperty, namespace, }) => {
+    const renderNode = async ({ id, path, node, data, packageName, isComponentRootNode = false, namespace, }) => {
+        if (!node) {
+            return '';
+        }
+        const formulaContext = {
+            data,
+            component,
+            package: packageName,
+            env,
+            toddle,
+        };
+        if (node.repeat) {
+            const items = applyFormula(node.repeat, formulaContext);
+            if (!Array.isArray(items)) {
+                return '';
+            }
+            const nodeItems = await Promise.all(items.map((Item, Index) => renderNode({
+                id,
+                path: Index ? `${path}(${Index})` : path,
+                node: { ...node, repeat: undefined },
+                data: {
+                    ...data,
+                    ListItem: data.ListItem
+                        ? { Index, Item, Parent: data.ListItem }
+                        : { Index, Item },
+                },
+                namespace,
+                packageName,
+            })));
+            return nodeItems.join('');
+        }
+        if (node.condition &&
+            !toBoolean(applyFormula(node.condition, formulaContext))) {
+            return '';
+        }
+        switch (node.type) {
+            case 'text': {
+                if (!namespace || namespace === 'http://www.w3.org/1999/xhtml') {
+                    return `<span data-node-type="text" data-node-id="${id}">${toEncodedText(String(applyFormula(node.value, formulaContext)))}</span>`;
+                }
+                return toEncodedText(String(applyFormula(node.value, formulaContext)));
+            }
+            case 'slot': {
+                const defaultChild = children?.[node.name ?? 'default'];
+                if (defaultChild) {
+                    return typeof defaultChild === 'function'
+                        ? await defaultChild(data.Contexts ?? {})
+                        : defaultChild;
+                }
+                else {
+                    const slotChildren = await Promise.all((node.children ?? []).map((child) => renderNode({
+                        id: child,
+                        path: `${path}[${node.name ?? 'default'}]`,
+                        node: component.nodes?.[child],
+                        data,
+                        packageName,
+                        namespace,
+                    })));
+                    return slotChildren.join('');
+                }
+            }
+            case 'element': {
+                switch (node.tag.toLocaleLowerCase()) {
+                    case 'script': {
+                        // we do not want to run scripts twice.
+                        return '';
+                    }
+                    case 'svg': {
+                        namespace = 'http://www.w3.org/2000/svg';
+                        break;
+                    }
+                    case 'math': {
+                        namespace = 'http://www.w3.org/1998/Math/MathML';
+                        break;
+                    }
+                }
+                const nodeAttrs = getNodeAttrs({
+                    node,
+                    data,
+                    component,
+                    packageName,
+                    env,
+                    toddle,
+                });
+                const classList = [];
+                const [style, variants] = getStaticStyleAndVariants(node);
+                if (style || variants) {
+                    classList.push(getClassName([style, variants]));
+                }
+                classList.push(...Object.entries(node.classes ?? {})
+                    .filter(([_, { formula }]) => toBoolean(applyFormula(formula, formulaContext)))
+                    .map(([className]) => className));
+                let hasDynamicCustomProperties = false;
+                if (id === 'root' && instance && Object.keys(instance).length > 0) {
+                    classList.push(...Object.entries(instance).map(([key, value]) => toValidClassName(`${key}:${value}`)));
+                    hasDynamicCustomProperties = true;
+                }
+                Object.entries(node.customProperties ?? {})
+                    .filter(
+                // Only prerender dynamic properties here as static properties are already part of class-styling.
+                ([_, customProperty]) => customProperty.formula?.type !== 'value')
+                    .forEach(([customPropertyName, customProperty]) => {
+                    hasDynamicCustomProperties = true;
+                    const value = appendUnit(applyFormula(customProperty.formula, formulaContext), customProperty.unit);
+                    if (isDefined(value)) {
+                        addCustomProperty(getNodeSelector(path), `${customPropertyName}: ${value}`);
+                    }
+                });
+                node.variants?.forEach((variant) => {
+                    Object.entries(variant.customProperties ?? {})
+                        .filter(([_, customProperty]) => customProperty.formula?.type !== 'value')
+                        .forEach(([customPropertyName, customProperty]) => {
+                        hasDynamicCustomProperties = true;
+                        // style-variables on variants are always version 2
+                        const value = appendUnit(applyFormula(customProperty.formula, formulaContext), customProperty.unit);
+                        if (isDefined(value)) {
+                            addCustomProperty(getNodeSelector(path, { variant }), `${customPropertyName}: ${value}`, variant);
+                        }
+                    });
+                });
+                if (hasDynamicCustomProperties) {
+                    classList.push(getPathClassName(path));
+                }
+                let innerHTML = '';
+                if (['script', 'style'].includes(node.tag.toLocaleLowerCase()) === false) {
+                    const childNodes = node.children
+                        ? await Promise.all(node.children.map((child, i) => renderNode({
+                            id: child,
+                            path: `${path}.${i}`,
+                            namespace,
+                            node: component.nodes?.[child],
+                            data,
+                            packageName,
+                        })))
+                        : [];
+                    innerHTML = childNodes.join('');
+                }
+                if (node.tag.toLocaleLowerCase() === 'style') {
+                    // render style content as text
+                    const textNode = node.children?.[0]
+                        ? component.nodes?.[node.children[0]]
+                        : undefined;
+                    if (textNode?.type === 'text') {
+                        innerHTML = String(applyFormula(textNode.value, formulaContext));
+                    }
+                }
+                const tag = component.version === 2 && isComponentRootNode
+                    ? `${packageName ?? projectId}-${node.tag}`
+                    : node.tag;
+                const attributes = [
+                    ...nodeAttrs,
+                    `data-id="${path}"`,
+                    `data-node-id="${escapeAttrValue(id)}"`,
+                ];
+                if (classList.length > 0) {
+                    attributes.push(`class="${escapeAttrValue(classList.join(' '))}"`);
+                }
+                if (!VOID_HTML_ELEMENTS.includes(tag)) {
+                    return `<${tag} ${attributes.join(' ')}>${innerHTML}</${tag}>`;
+                }
+                else {
+                    return `<${tag} ${attributes.join(' ')} />`;
+                }
+            }
+            case 'component': {
+                const attrs = mapValues(node.attrs ?? {}, (formula) => applyFormula(formula, formulaContext));
+                const contexts = {
+                    ...data.Contexts,
+                    [component.name]: Object.fromEntries(Object.entries(component.formulas ?? {})
+                        .filter(([, formula]) => formula?.exposeInContext)
+                        .map(([key, formula]) => [
+                        key,
+                        applyFormula(formula.formula, formulaContext),
+                    ])),
+                };
+                let _childComponent;
+                // `node.package` is stored statically on nodes when inserted from the catalog
+                const _packageName = node.package ?? packageName;
+                if (_packageName) {
+                    _childComponent =
+                        files.packages?.[_packageName]?.components[node.name] ??
+                            files.components[node.name];
+                }
+                else {
+                    _childComponent = files.components[node.name];
+                }
+                if (!isDefined(_childComponent)) {
+                    // eslint-disable-next-line no-console
+                    console.warn(`Unable to find component ${[packageName, node.name]
+                        .filter(isDefined)
+                        .join('/')} in files`);
+                    return '';
+                }
+                // help Typescript know that childComponent is defined
+                const childComponent = _childComponent;
+                const isLocalComponent = includedComponents.some((c) => c.name === childComponent.name);
+                // Evaluate the child component apis before rendering to make sure we have api data for potential contexts
+                const apis = await evaluateComponentApis({
+                    component: new ToddleComponent({
+                        component: childComponent,
+                        getComponent: (name, packageName) => {
+                            const nodeLookupKey = [packageName, name]
+                                .filter(isDefined)
+                                .join('/');
+                            const component = packageName
+                                ? files.packages?.[packageName]?.components[name]
+                                : files.components[name];
+                            if (!component) {
+                                // eslint-disable-next-line no-console
+                                console.warn(`Unable to find component ${nodeLookupKey} in files`);
+                                return undefined;
+                            }
+                            return component;
+                        },
+                        packageName,
+                        globalFormulas: {
+                            formulas: files.formulas,
+                            packages: files.packages,
+                        },
+                    }),
+                    formulaContext: {
+                        data: {
+                            Location: formulaContext.data.Location,
+                            Attributes: attrs,
+                            Contexts: contexts,
+                            Page: formulaContext.data.Page,
+                            Variables: mapValues(filterObject(childComponent.variables ?? {}, ([_, variable]) => isDefined(variable)), ({ initialValue }) => {
+                                return applyFormula(initialValue, formulaContext);
+                            }),
+                            Apis: {},
+                        },
+                        component: childComponent,
+                        package: node.package ?? (isLocalComponent ? undefined : packageName),
+                        env,
+                        toddle,
+                    },
+                    req,
+                    apiCache,
+                    updateApiCache,
+                });
+                const childNodes = await Promise.all((node.children ?? []).map(async (child, i) => {
+                    const slotName = typeof child === 'string'
+                        ? (component.nodes?.[child]?.slot ?? 'default')
+                        : 'default';
+                    return (contexts) => {
+                        return renderNode({
+                            id: child,
+                            path: `${path}.${i}[${slotName}]`,
+                            namespace,
+                            node: component.nodes?.[child],
+                            data: {
+                                ...data,
+                                Contexts: {
+                                    ...data.Contexts,
+                                    ...contexts,
+                                    [childComponent.name]: Object.fromEntries(Object.entries(childComponent.formulas ?? {})
+                                        .filter(([, formula]) => formula?.exposeInContext)
+                                        .map(([key, formula]) => [
+                                        key,
+                                        applyFormula(formula.formula, {
+                                            component: childComponent,
+                                            package: _packageName,
+                                            data: {
+                                                Contexts: {
+                                                    ...data.Contexts,
+                                                    ...Object.fromEntries(Object.entries(childComponent.formulas ?? {})
+                                                        .filter(([, formula]) => formula?.exposeInContext)
+                                                        .map(([key, formula]) => [
+                                                        key,
+                                                        applyFormula(formula.formula, {
+                                                            data: {
+                                                                Attributes: attrs,
+                                                                Apis: { ...data.Apis, ...apis },
+                                                                Location: data.Location,
+                                                                Page: data.Page,
+                                                            },
+                                                            component,
+                                                            package: _packageName,
+                                                            env,
+                                                            toddle,
+                                                        }),
+                                                    ])),
+                                                },
+                                                Apis: apis,
+                                                Attributes: attrs,
+                                                Variables: mapValues(filterObject(childComponent.variables ?? {}, ([_, variable]) => isDefined(variable)), ({ initialValue }) => {
+                                                    return applyFormula(initialValue, {
+                                                        data: {
+                                                            Attributes: attrs,
+                                                            Location: data.Location,
+                                                            Page: data.Page,
+                                                        },
+                                                        component,
+                                                        package: _packageName,
+                                                        env,
+                                                        toddle,
+                                                    });
+                                                }),
+                                            },
+                                            env,
+                                            toddle,
+                                        }),
+                                    ])),
+                                },
+                            },
+                            // pass package name to child component if it's defined
+                            packageName,
+                        });
+                    };
+                }));
+                const children = {};
+                childNodes.forEach((renderFn, i) => {
+                    const childNodeId = node.children?.[i];
+                    // Add children to the correct slot in the right order
+                    const slotName = typeof childNodeId === 'string'
+                        ? (component.nodes?.[childNodeId]?.slot ?? 'default')
+                        : 'default';
+                    const existing = children[slotName];
+                    if (existing) {
+                        const previous = typeof existing === 'function'
+                            ? existing
+                            : async () => existing;
+                        // Handle multiple elements in the same slot by appending
+                        children[slotName] = async (contexts) => {
+                            return (await previous(contexts)) + (await renderFn(contexts));
+                        };
+                    }
+                    else {
+                        children[slotName] = renderFn;
+                    }
+                });
+                // Add extra instance styling for each style-variable
+                Object.entries(node.customProperties ?? {}).forEach(([customPropertyName, customProperty]) => {
+                    const value = appendUnit(applyFormula(customProperty.formula, formulaContext), customProperty.unit);
+                    if (isDefined(value)) {
+                        addCustomProperty(getNodeSelector(path, {
+                            componentName: component.name,
+                            nodeId: id,
+                        }), `${customPropertyName}: ${value}`);
+                    }
+                });
+                node.variants?.forEach((variant) => {
+                    Object.entries(variant.customProperties ?? {}).forEach(([customPropertyName, customProperty]) => {
+                        const value = appendUnit(applyFormula(customProperty.formula, formulaContext), customProperty.unit);
+                        if (isDefined(value)) {
+                            addCustomProperty(getNodeSelector(path, {
+                                componentName: component.name,
+                                nodeId: id,
+                                variant,
+                            }), `${customPropertyName}: ${value}`, variant);
+                        }
+                    });
+                });
+                return createComponent({
+                    path,
+                    attrs,
+                    component: childComponent,
+                    contexts,
+                    children,
+                    packageName: node.package ?? (isLocalComponent ? undefined : packageName),
+                    // If the root node is another component, then append and forward previous instance
+                    instance: id === 'root'
+                        ? {
+                            ...instance,
+                            [[packageName, component.name].filter(isDefined).join('/')]: 'root',
+                        }
+                        : {
+                            [[packageName, component.name].filter(isDefined).join('/')]: id,
+                        },
+                    apis,
+                    env,
+                    includedComponents,
+                    formulaContext,
+                    files,
+                    apiCache,
+                    updateApiCache,
+                    addCustomProperty,
+                    projectId,
+                    namespace,
+                    evaluateComponentApis,
+                    req,
+                });
+            }
+        }
+    };
+    return renderNode({
+        id: 'root',
+        path,
+        node: component.nodes?.root,
+        data,
+        packageName,
+        isComponentRootNode: true,
+        namespace,
+    });
+};
+const createComponent = async ({ path, apiCache, apis, attrs, children, component, contexts, env, evaluateComponentApis, files, formulaContext, includedComponents, instance, packageName, projectId, req, updateApiCache, addCustomProperty, namespace, }) => {
+    const data = {
+        Location: formulaContext.data.Location,
+        Attributes: attrs,
+        Contexts: contexts,
+        Page: formulaContext.data.Page,
+        Apis: apis,
+    };
+    // Variables initial value has access to component data like attributes, so must be applied after formulaContext is somewhat populated
+    data.Variables = mapValues(filterObject(component.variables ?? {}, ([_, variable]) => isDefined(variable)), ({ initialValue }) => {
+        return applyFormula(initialValue, {
+            ...formulaContext,
+            data,
+        });
+    });
+    // Own context formulas has access to all other data in the component (attributes, variables, apis etc.) so is applied last
+    data.Contexts = {
+        ...data.Contexts,
+        [component.name]: {
+            ...data.Contexts?.[component.name],
+            ...Object.fromEntries(Object.entries(component.formulas ?? {})
+                .filter(([, formula]) => formula?.exposeInContext)
+                .map(([key, formula]) => [
+                key,
+                applyFormula(formula.formula, {
+                    ...formulaContext,
+                    data,
+                }),
+            ])),
+        },
+    };
+    return renderComponent({
+        apiCache,
+        path,
+        children,
+        component,
+        data,
+        env,
+        evaluateComponentApis,
+        files,
+        includedComponents,
+        instance,
+        packageName,
+        projectId,
+        namespace,
+        req,
+        toddle: formulaContext.toddle,
+        updateApiCache,
+        addCustomProperty,
+    });
+};
+/**
+ * Renders a page body for a given ToddleComponent
+ */
+export const renderPageBody = async ({ component, env, evaluateComponentApis, files, formulaContext, includedComponents, req, projectId, }) => {
+    const apiCache = {};
+    const updateApiCache = (key, value) => (apiCache[key] = value);
+    const customProperties = new Map();
+    const addCustomProperty = (selector, rule, options) => {
+        selector = options?.startingStyle
+            ? `${selector} { @starting-style { __RULES__ } }`
+            : `${selector} { __RULES__ }`;
+        if (options?.mediaQuery) {
+            selector = `@media (${Object.entries(options.mediaQuery)
+                .map(([key, value]) => `${key}: ${value}`)
+                .filter(Boolean)
+                .join(') and (')}) { ${selector} }`;
+        }
+        if (!customProperties.has(selector)) {
+            customProperties.set(selector, new Set());
+        }
+        customProperties.get(selector)?.add(rule);
+    };
+    const apis = await evaluateComponentApis({
+        component,
+        formulaContext,
+        req,
+        apiCache,
+        updateApiCache,
+    });
+    formulaContext.data.Apis = apis;
+    const html = await renderComponent({
+        path: '0',
+        apiCache,
+        component,
+        data: formulaContext.data,
+        env,
+        evaluateComponentApis,
+        files,
+        includedComponents,
+        instance: {},
+        packageName: undefined,
+        projectId,
+        req,
+        toddle: formulaContext.toddle,
+        updateApiCache,
+        addCustomProperty,
+    });
+    return {
+        html,
+        apiCache,
+        customProperties: [...customProperties]
+            .map(([selector, vars]) => selector.replace('__RULES__', Array.from(vars).join(';\n')))
+            .toReversed(),
+    };
+};
+//# sourceMappingURL=components.js.map

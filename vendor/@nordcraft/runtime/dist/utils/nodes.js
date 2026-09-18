@@ -1,0 +1,104 @@
+import { isDefined } from '@nordcraft/core/dist/utils/util';
+export const getNodeAndAncestors = (component, root, id) => {
+    if (typeof id !== 'string' || id.length === 0) {
+        return undefined;
+    }
+    const path = id.split('.');
+    const pathParsed = path.map((n) => parseInt(n));
+    const ancestors = [];
+    // nodePath skips the root element as it's selected as the initial
+    // value in the reduce below
+    const nodePath = pathParsed.slice(1);
+    const node = nodePath.reduce((node, childIndex, i) => {
+        switch (node?.type) {
+            // 'text' elements don't have any children
+            case 'element':
+            case 'component':
+            case 'slot': {
+                // Ancestors are elements before the target node
+                if (i <= nodePath.length - 1) {
+                    ancestors.push({
+                        ...node,
+                        // Use the original path as origin to get correct nodeIds
+                        nodeId: path.slice(0, i + 1).join('.'),
+                    });
+                }
+                const index = node.children?.[childIndex];
+                if (index === undefined) {
+                    return undefined;
+                }
+                return component.nodes?.[index];
+            }
+            default:
+                return undefined;
+        }
+    }, root);
+    if (!isDefined(node)) {
+        return undefined;
+    }
+    return { node: { ...node, nodeId: id }, ancestors };
+};
+export const isNodeOrAncestorConditional = (nodeLookup) => nodeLookup?.node?.condition !== undefined ||
+    nodeLookup?.ancestors.some((a) => a.condition !== undefined) === true;
+/**
+ * @returns The next sibling element or null if this is the last element. A nc sibling is a sibling with a higher index or the same index but a higher repeat index.
+ */
+export const getNextSiblingElement = (path, parentElement) => {
+    const pathParts = path.split('.');
+    const lastPathPart = pathParts.slice(-1)[0];
+    const index = parseInt(lastPathPart);
+    const repeatIndex = parseInt(String(lastPathPart.split('(')[1]));
+    // Find the first child that either has a higher index or a similar index, but higher repeat index
+    for (const child of parentElement.children) {
+        const childPath = child.getAttribute('data-id');
+        const lastChildPathPart = childPath?.split('.').slice(-1)[0];
+        const childIndex = parseInt(String(lastChildPathPart));
+        if (childIndex === index &&
+            parseInt(String(lastChildPathPart?.split('(')[1])) > repeatIndex) {
+            return child;
+        }
+        if (childIndex > index) {
+            return child;
+        }
+    }
+    return null;
+};
+/**
+ * This function efficiently ensures that:
+ * 1. New items are added in the correct position.
+ * 2. Existing items are not moved if they are already in the correct order.
+ */
+export function ensureEfficientOrdering(parentElement, items, nextElement = null) {
+    // Identify the starting point for comparisons.
+    let insertBeforeElement = nextElement; // If insertBeforeElement is null, items will be appended at the end.
+    // To track the current position in the DOM, we'll use a marker that advances through the sibling elements.
+    let currentMarker = insertBeforeElement
+        ? insertBeforeElement.previousSibling
+        : parentElement.lastChild;
+    // We'll process the items array in reverse order to minimize the number of DOM operations.
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        // Check if the item is already in the correct position by comparing it with the currentMarker.
+        if (item === currentMarker) {
+            // The item is in the correct position, move the marker to the previous sibling.
+            currentMarker = item.previousSibling;
+        }
+        else {
+            // The item is either not in the DOM or not in the correct position.
+            // Insert the item before the insertBeforeElement (or append it if insertBeforeElement is null).
+            parentElement.insertBefore(item, insertBeforeElement);
+        }
+        // Update insertBeforeElement to the current item for the next iteration, as we need to insert subsequent items before this one.
+        insertBeforeElement = item;
+    }
+}
+export function stripNodeIdRepeatIndices(nodeId) {
+    if (!nodeId) {
+        return null;
+    }
+    return nodeId
+        .split('.')
+        .map((part) => part.split('(')[0].split('{')[0])
+        .join('.');
+}
+//# sourceMappingURL=nodes.js.map

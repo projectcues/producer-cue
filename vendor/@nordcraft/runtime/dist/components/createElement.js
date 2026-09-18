@@ -1,0 +1,297 @@
+import { applyFormula } from '@nordcraft/core/dist/formula/formula';
+import { getClassName, getPathClassName, toValidClassName, } from '@nordcraft/core/dist/styling/className';
+import { appendUnit } from '@nordcraft/core/dist/styling/customProperty';
+import { getNodeSelector } from '@nordcraft/core/dist/utils/getNodeSelector';
+import { isDefined, toBoolean } from '@nordcraft/core/dist/utils/util';
+import { handleAction } from '../events/handleAction';
+import { formulaHasValue } from '../utils/formulaHasValue';
+import { getDragData } from '../utils/getDragData';
+import { getElementTagName } from '../utils/getElementTagName';
+import { setAttribute } from '../utils/setAttribute';
+import { subscribeCustomProperty } from '../utils/subscribeCustomProperty';
+import { createNode } from './createNode';
+export function createElement({ node, dataSignal, id, path, ctx, namespace, instance, slotRepeatIndex, }) {
+    const tag = getElementTagName(node, ctx, id);
+    switch (tag) {
+        case 'svg': {
+            namespace = 'http://www.w3.org/2000/svg';
+            break;
+        }
+        case 'math': {
+            namespace = 'http://www.w3.org/1998/Math/MathML';
+            break;
+        }
+    }
+    // Explicitly setting a namespace has precedence over inferring it from the tag
+    if (node.attrs?.['xmlns']?.type === 'value') {
+        namespace = String(node.attrs['xmlns'].value);
+    }
+    const elem = namespace
+        ? document.createElementNS(namespace, tag)
+        : document.createElement(tag);
+    const initialClasses = [];
+    const formulaCtx = {
+        component: ctx.component,
+        formulaCache: ctx.formulaCache,
+        root: ctx.root,
+        package: ctx.package,
+        toddle: ctx.toddle,
+        env: ctx.env,
+        reportFormulaEvaluation: ctx.reportFormulaEvaluation,
+    };
+    elem.setAttribute('data-node-id', id);
+    if (path) {
+        elem.setAttribute('data-id', path);
+    }
+    if (ctx.isRootComponent === false && id !== 'root') {
+        elem.setAttribute('data-component', ctx.component.name);
+    }
+    // class names are baked during preprocessing, except for in editor-preview where we generate them on the fly
+    if (node.style || node.variants?.some((v) => v.style)) {
+        const classHash = getClassName([node.style, node.variants]);
+        initialClasses.push(classHash);
+    }
+    if (node.classes) {
+        for (const className in node.classes) {
+            const formula = node.classes[className].formula;
+            if (formula) {
+                const classSignal = dataSignal.map((data) => toBoolean(applyFormula(formula, {
+                    ...formulaCtx,
+                    data,
+                })));
+                classSignal.subscribe((show) => show
+                    ? elem.classList.add(className)
+                    : elem.classList.remove(className));
+            }
+            else {
+                initialClasses.push(className);
+            }
+        }
+    }
+    let hasDynamicCustomProperties = false;
+    if (instance && id === 'root') {
+        Object.entries(instance).forEach(([key, value]) => {
+            initialClasses.push(toValidClassName(`${key}:${value}`));
+            // TODO: We should forward info on whether the instance has dynamic custom properties, but for now we assume that if the instance has any custom properties, they are dynamic.
+            hasDynamicCustomProperties = true;
+        });
+    }
+    Object.entries(node.attrs ?? {}).forEach(([attr, value]) => {
+        if (!isDefined(value)) {
+            return;
+        }
+        let o;
+        const setupAttribute = () => {
+            if (value.type === 'value') {
+                setAttribute(elem, attr, value?.value);
+            }
+            else {
+                const attrPath = ['nodes', id, 'attrs', attr];
+                o = dataSignal.map((data) => {
+                    const val = applyFormula(value, {
+                        ...formulaCtx,
+                        data,
+                    }, attrPath);
+                    ctx.reportFormulaEvaluation?.(attrPath, val, ctx);
+                    return val;
+                });
+                o.subscribe((val) => {
+                    setAttribute(elem, attr, val);
+                });
+            }
+        };
+        if (attr === 'autofocus' &&
+            ctx.env.runtime === 'preview' &&
+            ctx.toddle._preview) {
+            ctx.toddle._preview.showSignal.subscribe(({ testMode }) => {
+                if (testMode) {
+                    setupAttribute();
+                }
+                else {
+                    o?.destroy();
+                    elem.removeAttribute(attr);
+                }
+            });
+        }
+        else {
+            setupAttribute();
+        }
+    });
+    node['style-variables']?.forEach((styleVariable, i) => {
+        const { name, formula, unit } = styleVariable;
+        const styleVarPath = ['nodes', id, 'style-variables', i, 'formula'];
+        const signal = dataSignal.map((data) => {
+            const value = applyFormula(formula, {
+                ...formulaCtx,
+                data,
+            }, styleVarPath);
+            ctx.reportFormulaEvaluation?.(styleVarPath, value, ctx);
+            return unit ? value + unit : value;
+        });
+        signal.subscribe((value) => elem.style.setProperty(`--${name}`, value));
+    });
+    Object.entries(node.customProperties ?? {})
+        .filter(([_, { formula }]) => formulaHasValue(formula))
+        .forEach(([customPropertyName, { formula, unit }]) => {
+        hasDynamicCustomProperties = true;
+        const cpPath = [
+            'nodes',
+            id,
+            'customProperties',
+            customPropertyName,
+            'formula',
+        ];
+        const nodeSelector = getNodeSelector(path);
+        subscribeCustomProperty({
+            customPropertyName,
+            selector: ctx.env.runtime === 'custom-element' &&
+                ctx.isRootComponent &&
+                path === '0'
+                ? `${nodeSelector}, :host`
+                : nodeSelector,
+            signal: dataSignal.map((data) => {
+                const val = applyFormula(formula, {
+                    ...formulaCtx,
+                    data,
+                }, cpPath);
+                ctx.reportFormulaEvaluation?.(cpPath, val, ctx);
+                return appendUnit(val, unit);
+            }),
+            root: ctx.root,
+        });
+    });
+    node.variants?.forEach((variant, variantIndex) => {
+        Object.entries(variant.customProperties ?? {})
+            .filter(([_, { formula }]) => formulaHasValue(formula))
+            .forEach(([customPropertyName, { formula, unit }]) => {
+            hasDynamicCustomProperties = true;
+            const variantCpPath = [
+                'nodes',
+                id,
+                'variants',
+                variantIndex,
+                'customProperties',
+                customPropertyName,
+                'formula',
+            ];
+            subscribeCustomProperty({
+                customPropertyName,
+                selector: getNodeSelector(path, {
+                    variant,
+                }),
+                variant,
+                signal: dataSignal.map((data) => {
+                    const val = applyFormula(formula, {
+                        ...formulaCtx,
+                        data,
+                    }, variantCpPath);
+                    ctx.reportFormulaEvaluation?.(variantCpPath, val, ctx);
+                    return appendUnit(val, unit);
+                }),
+                root: ctx.root,
+            });
+        });
+    });
+    if (path && hasDynamicCustomProperties) {
+        initialClasses.push(getPathClassName(path));
+    }
+    if (initialClasses.length > 0) {
+        elem.classList.add(...initialClasses);
+    }
+    for (const key in node.events) {
+        const event = node.events[key];
+        if (!event) {
+            continue;
+        }
+        elem.addEventListener(event.trigger, getEventHandler({ event, dataSignal, ctx }), { signal: ctx.abortSignal });
+    }
+    // for script, style & SVG<text> tags we only render text child.
+    // this can be removed once we fix the editor to handle raw text nodes without wrapping <span>
+    const nodeTag = node.tag.toLocaleLowerCase();
+    if (nodeTag === 'script' || nodeTag === 'style') {
+        const textValues = [];
+        (node.children ?? [])
+            .map((child) => ctx.component.nodes?.[child])
+            .filter((node) => node?.type === 'text')
+            .forEach((node) => {
+            if (node.value.type === 'value') {
+                textValues.push(String(node.value.value));
+            }
+            else {
+                const textSignal = dataSignal.map((data) => {
+                    return String(applyFormula(node.value, {
+                        ...formulaCtx,
+                        data,
+                    }));
+                });
+                textValues.push(textSignal);
+            }
+        });
+        // if all values are string, we can directly set textContent
+        if (textValues.every((value) => typeof value === 'string')) {
+            elem.textContent = textValues.join('');
+        }
+        // for each signal, we subscribe and rewrite the entire textContent from all text nodes
+        textValues
+            .filter((value) => typeof value !== 'string')
+            .forEach((valueSignal) => {
+            valueSignal.subscribe(() => {
+                elem.textContent = textValues
+                    .map((value) => (typeof value === 'string' ? value : value.get()))
+                    .join('');
+            });
+        });
+    }
+    else {
+        const childNodes = [];
+        (node.children ?? []).forEach((child, i) => {
+            childNodes.push(...createNode({
+                parentElement: elem,
+                id: child,
+                path: path + '.' + i,
+                dataSignal,
+                ctx: { ...ctx, jsonPath: ['nodes', child] },
+                namespace,
+                instance,
+                slotRepeatIndex,
+            }));
+        });
+        elem.append(...childNodes);
+    }
+    dataSignal.subscribe(() => { }, {
+        destroy: () => {
+            // TODO: Clean up event listeners, but after destruction of child signals (Maybe we need a "afterDestroy" hook on signals?)
+            elem.parentNode?.removeChild(elem);
+        },
+    });
+    return elem;
+}
+const getEventHandler = ({ event, dataSignal, ctx, }) => (e) => {
+    event?.actions?.forEach((action) => {
+        if (e instanceof DragEvent) {
+            ;
+            e.data = getDragData(e);
+        }
+        if (e instanceof ClipboardEvent) {
+            try {
+                ;
+                e.data = Array.from(e.clipboardData?.items ?? []).reduce((dragData, item) => {
+                    try {
+                        dragData[item.type] = JSON.parse(e.clipboardData?.getData(item.type));
+                    }
+                    catch {
+                        dragData[item.type] = e.clipboardData?.getData(item.type);
+                    }
+                    return dragData;
+                }, {});
+            }
+            catch (e) {
+                // eslint-disable-next-line no-console
+                console.error('Could not get paste data', e);
+            }
+        }
+        void handleAction(action, { ...dataSignal.get(), Event: e }, ctx, e);
+    });
+    return false;
+};
+//# sourceMappingURL=createElement.js.map

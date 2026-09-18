@@ -1,0 +1,33 @@
+{
+  "name": "@nordcraft/ssr",
+  "license": "Apache-2.0",
+  "type": "module",
+  "homepage": "https://github.com/nordcraftengine/nordcraft",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nordcraftengine/nordcraft.git",
+    "directory": "packages/ssr"
+  },
+  "scripts": {
+    "build": "tsgo",
+    "npm-publish": "bun run build && bun publish --access public",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:watch:only": "bun test --watch --only",
+    "typecheck": "tsgo --noEmit",
+    "watch": "tsgo -w"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@nordcraft/core": "file:../core",
+    "@nordcraft/std-lib": "file:../lib",
+    "fast-deep-equal": "3.1.3",
+    "cookie": "1.0.2",
+    "xss": "1.0.15"
+  }
+}
