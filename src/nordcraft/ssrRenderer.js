@@ -1,4 +1,5 @@
 import { renderPageBody } from '@nordcraft/ssr/dist/rendering/components'
+import { createStylesheet } from '@nordcraft/core/dist/styling/style.css'
 
 /**
  * Renders a Nordcraft Project Component into production-ready SSR HTML and CSS.
@@ -6,7 +7,7 @@ import { renderPageBody } from '@nordcraft/ssr/dist/rendering/components'
  * @param {object} project - Valid Nordcraft project AST
  * @param {string} componentName - Name of component to render (e.g. 'HomePage')
  * @param {string} url - Target URL path
- * @returns {Promise<{ html: string, customProperties: string[], title: string }>}
+ * @returns {Promise<{ html: string, css: string, customProperties: string[], title: string }>}
  */
 export async function renderNordcraftSsr(project, componentName = 'HomePage', url = 'http://localhost:3000/') {
   const component = project.files.components[componentName]
@@ -65,11 +66,30 @@ export async function renderNordcraftSsr(project, componentName = 'HomePage', ur
     projectId: project.project.id,
   })
 
+  // Generate authentic Nordcraft scoped CSS rules
+  let css = ''
+  try {
+    const themes = { ...(project.files.themes || {}) }
+    if (themes.Default && !themes.Default.fonts) {
+      themes.Default.fonts = []
+    }
+    css = createStylesheet(
+      component,
+      Object.values(project.files.components),
+      themes,
+      { theme: 'Default', mode: 'light' }
+    )
+  } catch (err) {
+    console.error('createStylesheet error:', err)
+  }
+
   const title = component.route?.info?.title?.formula?.value || componentName
 
   return {
     html: result.html,
+    css,
     customProperties: result.customProperties || [],
     title,
   }
 }
+
