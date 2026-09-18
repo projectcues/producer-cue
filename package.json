@@ -14,14 +14,15 @@
     "LICENSE"
   ],
   "scripts": {
-    "start": "node bin/producer-cue.js",
+    "start": "node src/index.js",
     "test": "node --test test/mcp.test.js"
   },
   "dependencies": {
     "@nordcraft/core": "file:vendor/@nordcraft/core",
     "@nordcraft/lib": "file:vendor/@nordcraft/lib",
     "@nordcraft/runtime": "file:vendor/@nordcraft/runtime",
-    "@nordcraft/ssr": "file:vendor/@nordcraft/ssr"
+    "@nordcraft/ssr": "file:vendor/@nordcraft/ssr",
+    "express": "^4.22.3"
   },
   "keywords": [
     "mcp",
@@ -42,6 +43,6 @@
     "url": "https://github.com/projectcues/producer-cue.git"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }
