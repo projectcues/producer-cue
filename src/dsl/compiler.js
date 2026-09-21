@@ -1,6 +1,14 @@
 import { compileExpression, decompileFormula } from '../formulas/formulaTranspiler.js'
 
 export function expandCompactComponent(compact, options = {}) {
+  if (!compact || typeof compact !== 'object') throw new Error('compactSpec must be an object')
+  // Accept the ergonomic single-node form published by the MCP schema as well as
+  // the canonical {name, root:{...}} compact DSL.
+  if (!compact.root) {
+    const { name = 'Component', variables, attributes, ...root } = compact
+    compact = { name, variables, attributes, root }
+  }
+  if (!compact.root || typeof compact.root !== 'object') throw new Error('compactSpec.root must be an object')
   const variableNames = Object.keys(compact.variables || {})
   const attributeNames = Object.keys(compact.attributes || {})
   const formulaContext = { variables: variableNames, attributes: attributeNames }
@@ -19,7 +27,7 @@ export function expandCompactComponent(compact, options = {}) {
   function processNode(compactNode, explicitId) {
     const nodeId = explicitId || compactNode.id || generateId(compactNode.tag || 'node')
 
-    if (compactNode.tag.startsWith('component:')) {
+    if (String(compactNode.tag || '').startsWith('component:')) {
       const componentName = compactNode.tag.replace('component:', '')
       const attrs = {}
       if (compactNode.attrs) {
