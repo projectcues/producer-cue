@@ -268,3 +268,12 @@ test('Producer Cue: End-to-End Cloud HTTP & SSE Transport', async () => {
   sseSession.req.destroy()
   await new Promise((resolve) => server.close(resolve))
 })
+
+test('producer_generate_component accepts ergonomic single-node compactSpec', async () => {
+  const { handleMcpToolCall } = await import('../src/mcp/mcpServer.js')
+  const result = await handleMcpToolCall('producer_generate_component', {
+    compactSpec: { name: 'CanaryButton', tag: 'button', text: 'Submit', attrs: { 'aria-label': 'Submit' } },
+  })
+  assert.equal(result.name, 'CanaryButton')
+  assert.equal(result.nodes.root.tag, 'button')
+})
